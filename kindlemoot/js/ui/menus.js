@@ -151,10 +151,10 @@ export class Menus {
     upd();
   }
 
-  pause(canSwap) {
+  pause(canSwap, note) {
     const s = this.show(`<div class="panel">
       <h2>Paused</h2>
-      <p class="note">The match waits for you.</p>
+      <p class="note">${note ? esc(note) : 'The match waits for you.'}</p>
       <div class="row">
         <button class="btn primary" data-a="resume">Resume</button>
         ${canSwap ? '<button class="btn" data-a="swap">Change hero</button>' : ''}

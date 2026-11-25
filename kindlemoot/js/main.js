@@ -10,7 +10,7 @@ import { Menus } from './ui/menus.js';
 
 const params = new URLSearchParams(location.search);
 const AUTO = params.has('auto');            // test mode: a bot plays your slot
-const NOLOCK = params.has('nolock') || AUTO; // test mode: play without pointer lock
+let NOLOCK = params.has('nolock') || AUTO; // test mode: play without pointer lock
 const SPEED = Math.max(0.1, Math.min(16, +(params.get('speed') || 1)));
 
 const DEFAULTS = { sensitivity: 1, volume: 0.7, fov: 76, quality: 'auto', invertY: false, difficulty: 'normal', comp: 'classic', hero: 'marta' };
@@ -21,7 +21,6 @@ function loadSettings() {
   if (!HEROES[out.hero]) out.hero = DEFAULTS.hero;
   if (!['auto', 'low', 'medium', 'high'].includes(out.quality)) out.quality = DEFAULTS.quality;
   if (!['easy', 'normal', 'hard'].includes(out.difficulty)) out.difficulty = DEFAULTS.difficulty;
-  if (params.get('quality')) out.quality = params.get('quality');
   return out;
 }
 
@@ -30,7 +29,9 @@ const hudRoot = document.getElementById('hud');
 const settings = loadSettings();
 const audio = new GameAudio();
 audio.setVolume(settings.volume);
-const view = new GameView(canvas, MAP, settings.quality === 'auto' ? 'medium' : settings.quality, settings.fov);
+// ?quality=low|medium|high in the address wins over the saved setting, for tests. It is not saved.
+const qualityChoice = () => (['low', 'medium', 'high'].includes(params.get('quality')) ? params.get('quality') : settings.quality);
+const view = new GameView(canvas, MAP, qualityChoice() === 'auto' ? 'medium' : qualityChoice(), settings.fov);
 const hud = new Hud(hudRoot, view, audio);
 
 const app = {
@@ -44,7 +45,7 @@ const menus = new Menus(document.getElementById('ui'), app);
 // leaves room for 60 frames each second. The answer is kept for this window size.
 const FRAME_BUDGET = 11;
 function applyQuality() {
-  if (settings.quality !== 'auto') { app.auto = null; view.setQuality(settings.quality); return; }
+  if (qualityChoice() !== 'auto') { app.auto = null; view.setQuality(qualityChoice()); return; }
   const w = canvas.clientWidth, h = canvas.clientHeight, key = w + 'x' + h;
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem('kindlemoot.auto') || 'null'); } catch (e) { /* ignore */ }
@@ -150,8 +151,12 @@ function resume() {
   let p;
   try { p = canvas.requestPointerLock(); } catch (e) { p = null; }
   // The lock change event starts the game. If the browser refuses, stay paused.
-  if (p && p.catch) p.catch(() => { if (state !== 'playing') menus.pause(canSwap()); });
+  if (p && p.catch) p.catch(() => { if (state !== 'playing') menus.pause(canSwap(), LOCK_NOTE); });
 }
+
+// Browsers refuse the mouse for about a second after Esc. Tell the player what to do.
+const LOCK_NOTE = 'The browser did not give the mouse to the game. Wait a second, then click Resume again.';
+document.addEventListener('pointerlockerror', () => { if (state === 'paused' && sim && !NOLOCK) menus.pause(canSwap(), LOCK_NOTE); });
 
 function clearInput() {
   for (const k in keys) keys[k] = false;
@@ -289,6 +294,7 @@ window.__km = {
   view, hud, audio, settings, perf, app, look, keys, mouse, latch,
   start: (id) => startMatch(id || settings.hero), pause, resume, leave,
   bench: (frames, w, h) => view.benchmark(frames, w, h),
+  set noLock(v) { NOLOCK = !!v; }, // lets a browser test drive the player without pointer lock
 };
 
 app.qualityChoice = settings.quality;
