@@ -2,6 +2,7 @@
 // bots and the human run through the same movement, weapon and ability code.
 
 import { RULES } from '../data/heroes.js';
+import { onStrip } from './abilities.js';
 
 const DEG = Math.PI / 180;
 const TAU = Math.PI * 2;
@@ -156,8 +157,24 @@ export class Bot {
       if (this.alliesWithin(12) >= 2 || now > this.groupUntil || now - e.lastHurt < 1 || mustFight) { this.mode = 'objective'; this.grouped = true; }
     }
 
+    // A hurt bot steps onto a friendly healing zone that is close.
+    let healSpot = null;
+    if (this.mode === 'objective' && f < 0.8 && sim.zones.length) {
+      let bd = 11;
+      for (const z of sim.zones) {
+        if (z.team !== team || (z.type !== 'rangoli' && z.type !== 'marigold')) continue;
+        if (z.strip ? onStrip(z, e) : Math.hypot(z.x - e.x, z.z - e.z) < z.radius - 0.5) { healSpot = null; bd = -1; break; }
+        let px = z.x, pz = z.z;
+        if (z.strip) { const t = Math.max(1, Math.min(z.len - 1, (e.x - z.sx) * z.dx + (e.z - z.sz) * z.dz)); px = z.sx + z.dx * t; pz = z.sz + z.dz * t; }
+        const d = Math.hypot(px - e.x, pz - e.z);
+        if (d < bd) { bd = d; healSpot = { x: px, y: z.y, z: pz }; }
+      }
+    }
+
     let gx, gz, gy = 0;
-    if (this.mode === 'retreat') {
+    if (healSpot) {
+      gx = healSpot.x; gz = healSpot.z; gy = healSpot.y;
+    } else if (this.mode === 'retreat') {
       gx = this.retreatGoal.x; gz = this.retreatGoal.z; gy = this.retreatGoal.y || 0;
     } else if (this.mode === 'group') {
       const s = sim.map.staging[team][0];
@@ -470,9 +487,18 @@ export class Bot {
         break;
       }
       case 'chema': {
-        const near = this.alliesWithin(a0.radius, 0.8) + (f < 0.8 ? 1 : 0);
-        const travel = !fight && this.alliesWithin(a0.radius) >= 2 && Math.hypot(e.x, e.z) > 25 && sim.objective.owner !== e.team;
-        if (can0 && this.ready(0, (near >= 2 && fight) || f < 0.5 || travel)) c.a1 = true;
+        // Lay the path over hurt allies, or along the road when the troupe walks in together.
+        let hx = 0, hz = 0, hn = 0;
+        for (const o of sim.ents) {
+          if (o === e || !o.alive || o.decoy || o.team !== e.team || o.hp / o.maxHp > 0.85) continue;
+          if (Math.hypot(o.x - e.x, o.z - e.z) < a0.length) { hx += o.x; hz += o.z; hn++; }
+        }
+        const travel = !fight && this.alliesWithin(9) >= 2 && Math.hypot(e.x, e.z) > 25 && sim.objective.owner !== e.team;
+        if (can0 && this.ready(0, (fight && (hn >= 1 || f < 0.6)) || travel)) {
+          if (hn && !travel) this.lookAt(hx / hn, sim.eyeY(e), hz / hn);
+          else if (travel && Math.hypot(e.vx, e.vz) > 1) this.lookAt(e.x + e.vx, sim.eyeY(e), e.z + e.vz);
+          c.a1 = true;
+        }
         if (can1 && this.ready(1, t && d < a1.range * 0.9)) { this.lookAt(t.x, sim.chestY(t), t.z); c.a2 = true; }
         if (canU && this.ready(2, this.alliesWithin(ult.radius) >= 2 - slop && this.enemiesWithin(28) >= 2)) c.ult = true;
         break;

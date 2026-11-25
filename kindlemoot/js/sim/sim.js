@@ -3,7 +3,7 @@
 
 import { RULES, HEROES, DIFFICULTY } from '../data/heroes.js';
 import { World } from './world.js';
-import { ABILITIES, ZONES, PASSIVES, updateDeployable } from './abilities.js';
+import { ABILITIES, ZONES, updateDeployable } from './abilities.js';
 import { Bot } from './bots.js';
 
 export const DT = 1 / RULES.tickRate;
@@ -136,16 +136,17 @@ export class Sim {
   }
   dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z); }
 
-  // Can a see b (chest or head), with walls and enemy wards ignored for sight.
+  // Can a see b (chest or head)? Walls block sight, and so do the spawn gates of
+  // the other troupe. Wards do not block sight.
   canSee(a, b) {
     const ay = this.eyeY(a);
-    return this.world.los(a.x, ay, a.z, b.x, this.chestY(b), b.z) || this.world.los(a.x, ay, a.z, b.x, b.y + b.hero.height - 0.2, b.z);
+    return this.world.los(a.x, ay, a.z, b.x, this.chestY(b), b.z, a.team) || this.world.los(a.x, ay, a.z, b.x, b.y + b.hero.height - 0.2, b.z, a.team);
   }
 
   // Line of fire from a point to an entity for area effects: walls and enemy wards block.
   clearTo(x, y, z, b, team) {
     const by = this.chestY(b);
-    if (!this.world.los(x, y, z, b.x, by, b.z)) return false;
+    if (!this.world.los(x, y, z, b.x, by, b.z, team)) return false;
     return !this.barrierBetween(x, y, z, b.x, by, b.z, team);
   }
 
@@ -230,6 +231,10 @@ export class Sim {
   kill(target, src) {
     target.alive = false; target.hp = 0; target.shield = 0;
     target.respawnT = RULES.respawnTime;
+    // The "Remembered" passive of Don Chema: allies come back sooner while he stands.
+    for (const a of this.ents) {
+      if (a !== target && a.alive && !a.decoy && a.team === target.team && a.hero.passive && a.hero.passive.id === 'remembered') { target.respawnT -= a.hero.passive.respawn; break; }
+    }
     target.diedAt = this.time; target.killer = src || null;
     target.dots.length = 0; target.drums = null; target.flaming = false; target.invisUntil = 0;
     if (target.decoy) { this.events.push({ t: 'decoyEnd', ent: target }); return; }
@@ -346,7 +351,6 @@ export class Sim {
       if (d.until <= now) e.dots.splice(i, 1);
     }
     if (e.shield > 0 && e.shieldUntil <= now) e.shield = 0;
-    if (hero.passive) PASSIVES[hero.passive.id](this, e, hero.passive, DT);
     if (e.ultUntil <= now && e.ult < hero.ult.cost) e.ult = Math.min(hero.ult.cost, e.ult + RULES.ultPassive * DT);
 
     // Movement.

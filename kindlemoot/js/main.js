@@ -118,6 +118,7 @@ function startMatch(heroId) {
 }
 
 function leave() {
+  audio.setPaused(false);
   view.endMatch(); audio.stopAll();
   sim = human = subject = null;
   hudRoot.hidden = true;

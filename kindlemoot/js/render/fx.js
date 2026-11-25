@@ -368,7 +368,7 @@ export class Fx {
       case 'guise': this.burst(this.glow, e.x, y, e.z, 30, 3.5, 0.7, 0.6, 0x9d6bff, -0.5, 2); this.burst(this.solid, e.x, y, e.z, 14, 2, 0.8, 0.25, 0x241830, -1, 2); break;
       case 'luckyred': this.ring(e.x, e.y, e.z, e.hero.abilities[1].radius, 0xff2a1a, 0.5); break;
       case 'crows': this.burst(this.solid, e.x, y + 1, e.z, 30, 6, 0.8, 0.12, 0x140c1c, 2, 1, 4); this.ring(e.x, e.y, e.z, 6, 0x9d6bff, 0.6); break;
-      case 'rangoli': case 'lights': case 'marigold': case 'lastsong': case 'longnight':
+      case 'rangoli': case 'lights': case 'lastsong': case 'longnight':
         this.ring(e.x, e.y, e.z, (ev.slot === 2 ? e.hero.ult : e.hero.abilities[ev.slot]).radius, ZONE_LOOK[ev.id].rim, 0.6); break;
       case 'ward': this.burst(this.glow, e.x - Math.sin(e.yaw) * 2.6, y, e.z - Math.cos(e.yaw) * 2.6, 24, 4, 0.5, 0.25, 0x7dff9a); break;
     }
@@ -391,6 +391,17 @@ export class Fx {
     const look = ZONE_LOOK[z.type], g = new THREE.Group();
     const friendly = !human || human.team === z.team;
     const rimColor = friendly ? look.rim : 0xff3030;
+    if (z.strip) {
+      // Marigold Path: a long strip of petals.
+      const strip = new THREE.Mesh(new THREE.PlaneGeometry(z.halfW * 2, z.len).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: look.color, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -3 }));
+      const edge = new THREE.LineSegments(new THREE.EdgesGeometry(strip.geometry), new THREE.LineBasicMaterial({ color: rimColor, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+      strip.position.y = 0.06; edge.position.y = 0.08;
+      g.add(strip, edge);
+      g.position.set(z.x, z.y, z.z); g.rotation.y = Math.atan2(z.dx, z.dz); g.renderOrder = 3;
+      this.scene.add(g);
+      this.zones.set(z.id, { g, z, disc: strip, rim: edge });
+      return;
+    }
     const disc = new THREE.Mesh(this.discGeo, new THREE.MeshBasicMaterial({
       color: look.color, map: z.type === 'rangoli' ? this.rangoliTex : null, transparent: true, opacity: z.type === 'rangoli' ? 0.8 : 0.12,
       depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -3,
@@ -493,6 +504,17 @@ export class Fx {
         const z = zv.z;
         zv.g.position.set(z.x, z.y, z.z);
         const age = time, r = z.radius;
+        if (z.strip) {
+          const leftS = z.until - sim.time;
+          zv.rim.material.opacity = leftS < 1 ? 0.3 + 0.55 * Math.abs(Math.sin(sim.time * 12)) : 0.9;
+          for (let i = this.n(170, dt); i > 0; i--) {
+            const u = R() * z.len, w = (R() - 0.5) * 2 * z.halfW;
+            const px = z.sx + z.dx * u - z.dz * w, pz = z.sz + z.dz * u + z.dx * w;
+            if (R() < 0.75) this.solid.spawn(px, z.y + 0.08, pz, (R() - 0.5) * 0.6, 0.5 + R() * 1.2, (R() - 0.5) * 0.6, 1.1, 0.085, 1, 0.5 + R() * 0.25, 0.06, 1.2, 0.5);
+            else this.glow.spawn(px, z.y + 0.1, pz, 0, 0.6 + R(), 0, 0.8, 0.12, 1, 0.7, 0.25);
+          }
+          continue;
+        }
         zv.disc.rotation.y = age * 0.3;
         const left = z.until - sim.time;
         zv.rim.material.opacity = left < 1 ? 0.3 + 0.55 * Math.abs(Math.sin(sim.time * 12)) : 0.85;

@@ -138,15 +138,22 @@ if (!isMainThread) {
   }
   if (want('mixed')) {
     const g = group('mixed');
-    console.log(`MIXED (${g.length} matches, random troupes): win rate of a troupe by how many copies of a hero it has`);
+    console.log(`MIXED (${g.length} matches, random troupes)`);
+    console.log('  "more" = win rate of the troupe that has more copies of the hero than the other troupe. This is the fair measure.');
+    console.log('  "with" = win rate of every troupe that has the hero. Matches where both have it pull this toward 50%.');
     out.mixed = {};
     for (const id of HERO_IDS) {
       const c = [[0, 0], [0, 0], [0, 0]];
-      for (const r of g) for (const t of [0, 1]) { const n = r.teams[t].filter((x) => x === id).length; c[n][0]++; if (r.winner === t) c[n][1]++; }
+      let moreN = 0, moreW = 0;
+      for (const r of g) {
+        const n = [0, 1].map((t) => r.teams[t].filter((x) => x === id).length);
+        for (const t of [0, 1]) { c[n[t]][0]++; if (r.winner === t) c[n[t]][1]++; }
+        if (n[0] !== n[1]) { moreN++; if (r.winner === (n[0] > n[1] ? 0 : 1)) moreW++; }
+      }
       const wr = c.map(([n, w]) => (n ? w / n : 0));
-      const withN = c[1][0] + c[2][0], withW = (c[1][1] + c[2][1]) / withN;
-      out.mixed[id] = { none: wr[0], one: wr[1], two: wr[2], with: withW, n: withN };
-      console.log(`  ${id.padEnd(8)} with ${pct(withW)} ±${ci(withW, withN)} (n=${withN})   none ${pct(wr[0])}  one ${pct(wr[1])}  two ${pct(wr[2])} (n=${c[2][0]})`);
+      const withN = c[1][0] + c[2][0], withW = (c[1][1] + c[2][1]) / withN, more = moreW / Math.max(1, moreN);
+      out.mixed[id] = { more, moreN, none: wr[0], one: wr[1], two: wr[2], with: withW, n: withN };
+      console.log(`  ${id.padEnd(8)} more ${pct(more)} ±${ci(more, moreN)} (n=${moreN})   with ${pct(withW)} (n=${withN})   none ${pct(wr[0])}  one ${pct(wr[1])}  two ${pct(wr[2])} (n=${c[2][0]})`);
     }
     console.log('');
   }

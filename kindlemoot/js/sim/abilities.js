@@ -245,7 +245,16 @@ export const ABILITIES = {
 
   // ----- Don Chema -----------------------------------------------------
   marigold: {
-    cast(sim, e, def) { addZone(sim, e, 'marigold', def, true); return true; },
+    // A straight strip of petals on the ground, from just behind Don Chema to where he looks.
+    cast(sim, e, def) {
+      const dx = -Math.sin(e.yaw), dz = -Math.cos(e.yaw);
+      const sx = e.x - dx * 1.5, sz = e.z - dz * 1.5;
+      addZone(sim, e, 'marigold', def, false, {
+        strip: true, sx, sz, dx, dz, len: def.length, halfW: def.width / 2,
+        x: sx + dx * def.length / 2, z: sz + dz * def.length / 2, radius: def.length / 2,
+      });
+      return true;
+    },
   },
   rattle: {
     cast(sim, e, def) {
@@ -265,7 +274,7 @@ export const ABILITIES = {
     },
   },
   lastsong: {
-    cast(sim, e, def) { addZone(sim, e, 'lastsong', def, true); return true; },
+    cast(sim, e, def) { addZone(sim, e, 'lastsong', def, false); return true; },
   },
 };
 
@@ -282,15 +291,13 @@ function enemies(sim, z, fn) {
   }
 }
 
-export const PASSIVES = {
-  // Don Chema: a slow heal for everybody close to him.
-  company(sim, e, def, dt) {
-    for (const o of sim.ents) {
-      if (!o.alive || o.decoy || o.team !== e.team) continue;
-      if (o === e || inRadius(sim, e.x, e.y, e.z, def.radius, o)) sim.heal(o, def.heal * dt, e, false);
-    }
-  },
-};
+// True when a hero stands on a strip zone (Marigold Path).
+export function onStrip(z, o) {
+  const px = o.x - z.sx, pz = o.z - z.sz, r = o.hero.radius;
+  const t = px * z.dx + pz * z.dz;
+  if (t < -r || t > z.len + r) return false;
+  return Math.abs(pz * z.dx - px * z.dz) <= z.halfW + r && Math.abs(o.y - z.y) < 3;
+}
 
 export const ZONES = {
   longnight(sim, z) {
@@ -303,7 +310,11 @@ export const ZONES = {
     allies(sim, z, (o) => { sim.heal(o, z.def.heal * dt, z.owner, false); sim.status(o, 'resist', z.def.resist, 0.25); });
   },
   marigold(sim, z, dt) {
-    allies(sim, z, (o) => { sim.heal(o, z.def.heal * dt, z.owner, false); sim.status(o, 'haste', z.def.speed, 0.25); });
+    for (const o of sim.ents) {
+      if (!o.alive || o.decoy || o.team !== z.team || !onStrip(z, o)) continue;
+      sim.heal(o, z.def.heal * dt, z.owner, false);
+      sim.status(o, 'haste', z.def.speed, 0.25);
+    }
   },
   lastsong(sim, z) {
     allies(sim, z, (o) => { sim.status(o, 'boost', z.def.boost, 0.25); sim.status(o, 'steal', z.def.lifesteal, 0.25); });

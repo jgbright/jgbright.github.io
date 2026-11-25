@@ -61,7 +61,7 @@ export const HEROES = {
       name: 'Hearth Bellows',
       type: 'flame',
       desc: (w) => `A short stream of embers. It burns every enemy in front of you for ${Math.round(w.damage * w.rate)} damage each second, up to ${w.range} m.`,
-      damage: 8.5,
+      damage: 8.25,
       rate: 10,
       range: 10.5,
       cone: 10,          // half angle in degrees
@@ -96,7 +96,7 @@ export const HEROES = {
     culture: 'East and Southeast Asia',
     role: 'tank',
     difficulty: 2,
-    hp: 440,
+    hp: 455,
     speed: 5.6,
     radius: 0.6,
     height: 2.0,
@@ -114,7 +114,7 @@ export const HEROES = {
       name: 'Firecracker String',
       type: 'projectile',
       desc: (w) => `Throws ${w.rate} firecrackers each second. Each one does ${w.damage} damage.`,
-      damage: 10,
+      damage: 11,
       rate: 9,
       speed: 58,
       spread: 1.5,
@@ -126,12 +126,12 @@ export const HEROES = {
       {
         id: 'pounce', key: 'shift', name: 'Lion\'s Pounce', cooldown: 7,
         desc: (a) => `Leap where you look. Where you land, enemies within ${a.radius} m take ${a.damage} damage and are pushed away.`,
-        speed: 15, lift: 7.5, radius: 4, damage: 40, knockback: 8,
+        speed: 15, lift: 7.5, radius: 4, damage: 48, knockback: 8,
       },
       {
         id: 'luckyred', key: 'e', name: 'Lucky Red', cooldown: 13,
         desc: (a) => `Throw red envelopes. You get ${a.self} extra health and allies within ${a.radius} m get ${a.allies}. It lasts ${a.duration} s.`,
-        self: 130, allies: 75, radius: 9, duration: 5,
+        self: 150, allies: 80, radius: 9, duration: 5,
       },
     ],
     ult: {
@@ -168,7 +168,7 @@ export const HEROES = {
       name: 'Candlelock',
       type: 'hitscan',
       desc: (w) => `A long rifle. Each shot does ${w.damage} damage, or ${w.damage * w.crit} to the head. Hold the right mouse button to aim.`,
-      damage: 92,
+      damage: 94,
       crit: 2,
       rate: 1.25,
       spread: 0.1,
@@ -192,9 +192,9 @@ export const HEROES = {
     ult: {
       id: 'crows', name: 'Murder of Crows', cost: 1350,
       desc: (u) => `Send a crow at every enemy you can see within ${u.range} m. Each crow does ${u.damage} damage over ${u.duration} s.`,
-      range: 42, damage: 130, duration: 2.5,
+      range: 42, damage: 140, duration: 2.5,
     },
-    ai: { range: 24, hold: 10, perch: 0.5 },
+    ai: { range: 22, hold: 8, perch: 0.35 },
   },
 
   pip: {
@@ -205,7 +205,7 @@ export const HEROES = {
     culture: 'Spring prank days in many countries',
     role: 'damage',
     difficulty: 2,
-    hp: 210,
+    hp: 220,
     speed: 6.4,
     radius: 0.42,
     height: 1.7,
@@ -223,7 +223,7 @@ export const HEROES = {
       name: 'Party Poppers',
       type: 'hitscan',
       desc: (w) => `Two fast poppers. Each shot does ${w.damage} damage up close and less from far away.`,
-      damage: 23,
+      damage: 23.5,
       crit: 1.5,
       rate: 8,
       spread: 2.0,
@@ -281,7 +281,7 @@ export const HEROES = {
       type: 'projectile',
       desc: (w) => `Throws sparks. A spark heals an ally for ${w.heal} or does ${w.damage} damage to an enemy.`,
       damage: 24,
-      heal: 24,
+      heal: 21.5,
       rate: 2.6,
       speed: 62,
       spread: 0.2,
@@ -293,7 +293,7 @@ export const HEROES = {
       {
         id: 'rangoli', key: 'shift', name: 'Rangoli', cooldown: 13,
         desc: (a) => `Draw a pattern of light at your feet. Allies who stand on it heal ${a.heal} each second for ${a.duration} s.`,
-        radius: 5, heal: 24, duration: 6,
+        radius: 5, heal: 22, duration: 6,
       },
       {
         id: 'sweetbox', key: 'e', name: 'Sweet Box', cooldown: 9,
@@ -323,9 +323,9 @@ export const HEROES = {
     height: 1.8,
     color: '#ff9a1f',
     accent: '#35c2d6',
-    tagline: 'His songs make the whole team hit harder.',
-    strength: 'Strong on a team that attacks. His songs add speed and damage.',
-    counter: 'Weak when the team is losing a fight. His healing is slow.',
+    tagline: 'Shows the team the way, and the way back.',
+    strength: 'Strong on a team that attacks. His path adds speed, his rattle adds damage, and fallen allies come back sooner.',
+    counter: 'Weak when the team spreads out. Only allies on his path heal.',
     bio: [
       'Don Chema plays for the people who are away. Each autumn he lays a path of marigolds so they can find the door.',
       'He says Lan is not gone, only late. He keeps a place for her at the table and a second chair for Jun.',
@@ -344,15 +344,15 @@ export const HEROES = {
       reload: 1.5,
     },
     passive: {
-      id: 'company', name: 'Good Company',
-      desc: (p) => `Always on. You and allies within ${p.radius} m heal ${p.heal} each second.`,
-      radius: 10, heal: 6,
+      id: 'remembered', name: 'Remembered',
+      desc: (p) => `Always on. While you stand, allies who fall come back ${p.respawn} s sooner.`,
+      respawn: 1,
     },
     abilities: [
       {
-        id: 'marigold', key: 'shift', name: 'Marigold Path', cooldown: 11,
-        desc: (a) => `Play a walking song for ${a.duration} s. You and allies within ${a.radius} m heal ${a.heal} each second and move ${pct(a.speed - 1)} faster.`,
-        radius: 9, duration: 6, heal: 28, speed: 1.25,
+        id: 'marigold', key: 'shift', name: 'Marigold Path', cooldown: 10,
+        desc: (a) => `Lay a path of petals ${a.length} m ahead of you for ${a.duration} s. Allies on the path heal ${a.heal} each second and move ${pct(a.speed - 1)} faster.`,
+        length: 16, width: 5.5, duration: 7, heal: 31, speed: 1.3,
       },
       {
         id: 'rattle', key: 'e', name: 'Calaca Rattle', cooldown: 10,
@@ -362,7 +362,7 @@ export const HEROES = {
     ],
     ult: {
       id: 'lastsong', name: 'The Last Song', cost: 1500,
-      desc: (u) => `A band of friends plays with you for ${u.duration} s. You and allies within ${u.radius} m do ${pct(u.boost - 1)} more damage and heal for ${pct(u.lifesteal)} of the damage they do.`,
+      desc: (u) => `A band of friends sets up where you stand and plays for ${u.duration} s. You and allies within ${u.radius} m of the band do ${pct(u.boost - 1)} more damage and heal for ${pct(u.lifesteal)} of the damage they do.`,
       radius: 12, duration: 7, boost: 1.3, lifesteal: 0.3,
     },
     ai: { range: 15, hold: 8 },
@@ -380,7 +380,7 @@ export const TEAMS = [
 
 // Bot skill levels. Balance tests use "normal".
 export const DIFFICULTY = {
-  easy:   { label: 'Gentle',  aimError: 2.8, aimSpeed: 6.5, reaction: 0.45, abilityDelay: 1.3, ultSense: 0.6, strafe: 0.5, headAim: 0.0 },
+  easy:   { label: 'Gentle',  aimError: 2.45, aimSpeed: 7.2, reaction: 0.4, abilityDelay: 1.0, ultSense: 0.65, strafe: 0.6, headAim: 0.05 },
   normal: { label: 'Fair',    aimError: 2.0, aimSpeed: 8,   reaction: 0.32, abilityDelay: 0.7, ultSense: 0.8, strafe: 0.7, headAim: 0.15 },
   hard:   { label: 'Fierce',  aimError: 1.5, aimSpeed: 9.5, reaction: 0.24, abilityDelay: 0.4, ultSense: 1.0, strafe: 0.9, headAim: 0.28 },
 };
