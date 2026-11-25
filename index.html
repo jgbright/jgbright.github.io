@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jgbright</title>
+<meta name="description" content="jgbright's site.">
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --ink: #1c1b19;
+    --muted: #6b6861;
+    --line: #dedad2;
+    --accent: #0b5cad;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413;
+      --ink: #ecebe6;
+      --muted: #9d9a92;
+      --line: #32312e;
+      --accent: #7db7f0;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 18px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+  }
+  main { width: 100%; max-width: 34rem; }
+  h1 {
+    margin: 0 0 0.5rem;
+    font: 600 2.5rem/1.1 ui-monospace, "Cascadia Code", Consolas, monospace;
+    letter-spacing: -0.02em;
+  }
+  p { margin: 0 0 1.5rem; color: var(--muted); }
+  nav { border-top: 1px solid var(--line); padding-top: 1rem; }
+  a {
+    color: var(--accent);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>jgbright</h1>
+  <p>This site is new. More is on the way.</p>
+  <nav><a href="https://github.com/jgbright">github.com/jgbright</a></nav>
+</main>
+</body>
+</html>
