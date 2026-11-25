@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kindlemoot</title>
+<meta name="description" content="Kindlemoot: a holiday hero shooter that runs in your browser. Six Keepers, two troupes, one Year-Fire.">
+<link rel="stylesheet" href="css/game.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/build/three.module.js", "three/addons/": "./vendor/three/examples/jsm/" } }
+</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="hud" hidden></div>
+<div id="ui"></div>
+
+<div id="loading" class="cover">
+  <div class="cover-box">
+    <h1 class="logo">Kindlemoot</h1>
+    <p id="loading-text">Lighting the lamps…</p>
+  </div>
+</div>
+
+<div id="phone" class="cover" hidden>
+  <div class="cover-box">
+    <h1 class="logo">Kindlemoot</h1>
+    <p>Kindlemoot is a first-person game. It needs a keyboard and a mouse.</p>
+    <p>Please come back on a laptop or a desktop computer. The Year-Fire will still be warm.</p>
+    <p><a href="../">Back to jgbright.com</a></p>
+  </div>
+</div>
+
+<noscript><div class="cover"><div class="cover-box"><h1 class="logo">Kindlemoot</h1><p>This game needs JavaScript.</p><p><a href="../">Back to jgbright.com</a></p></div></div></noscript>
+
+<script>
+// Check for a phone or tablet before the heavy game code loads.
+(function () {
+  var q = new URLSearchParams(location.search);
+  var coarse = matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
+  var small = Math.min(window.innerWidth, window.innerHeight) < 480;
+  if ((coarse || small) && !q.has('desktop')) {
+    document.getElementById('loading').hidden = true;
+    document.getElementById('phone').hidden = false;
+    return;
+  }
+  import('./js/main.js').catch(function (err) {
+    console.error(err);
+    document.getElementById('loading-text').textContent = 'The game could not start. Your browser may be too old, or WebGL may be turned off.';
+  });
+})();
+</script>
+</body>
+</html>
