@@ -97,9 +97,9 @@ kbd { display: inline-block; min-width: 1.8em; text-align: center; padding: 0.05
 .board th { font-weight: 600; color: var(--muted); font-size: 0.8rem; text-align: right; padding: 0.2rem 0.6rem; }
 .board th:first-child, .board td:first-child { text-align: left; }
 .board td { padding: 0.28rem 0.6rem; text-align: right; border-top: 1px solid rgba(255, 255, 255, 0.07); }
-.board tr.me td { background: rgba(255, 255, 255, 0.1); font-weight: 700; }
+.board tr.row-me td { background: rgba(255, 255, 255, 0.1); font-weight: 700; }
 .board .team td { border: 0; padding-top: 0.7rem; font: 700 1rem var(--display); }
-.board .dead td { opacity: 0.5; }
+.board .row-dead td { opacity: 0.5; }
 .t0 { color: var(--dawn); } .t1 { color: var(--dusk); }
 .end h2 { font-size: 3rem; text-align: center; margin-bottom: 0.2rem; }
 .end .result { text-align: center; color: var(--muted); margin: 0 0 1rem; }

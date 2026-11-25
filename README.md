@@ -37,8 +37,13 @@ Set `PORT` to use a different port for `npm run dev`.
 The simulation runs in plain Node.js, so these work on the source directly:
 
 ```
-node kindlemoot/tools/smoke.mjs 6   # six fast bot matches; fails on errors
+node kindlemoot/tools/smoke.mjs 6     # six fast bot matches; fails on errors
+node kindlemoot/tools/balance.mjs     # about 1,250 bot matches on all CPU cores; prints win rates
 ```
+
+`balance.mjs` has options for the number of matches, one test suite and the
+bot skill. Its first lines list them. Use it after each change to
+`js/data/heroes.js`.
 
 `npm run dev` also serves a model preview page at
 `/kindlemoot/tools/models.html`.

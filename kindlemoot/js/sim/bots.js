@@ -14,7 +14,7 @@ export class Bot {
     this.seen = new Map();
     this.aimYaw = 0; this.aimPitch = 0;
     this.errYaw = 0; this.errPitch = 0; this.errYawT = 0; this.errPitchT = 0; this.errAt = 0;
-    this.stuckN = 0; this.teleports = 0;
+    this.stuckN = 0; this.teleports = 0; this.retreats = 0; this.groups = 0;
     this.onSpawn();
   }
 
@@ -137,7 +137,7 @@ export class Bot {
     } else {
       const limit = hero.role === 'tank' ? 0.25 : 0.38;
       if (f < limit && now - e.lastHurt < 3 && !mustFight) {
-        this.mode = 'retreat'; this.retreatUntil = now + 7;
+        this.mode = 'retreat'; this.retreatUntil = now + 7; this.retreats++;
         this.retreatGoal = this.pickRetreat();
       }
     }
@@ -149,7 +149,7 @@ export class Bot {
           if (a === e || a.decoy || a.team !== team) continue;
           if ((a.alive && Math.hypot(a.x - pt.x, a.z - pt.z) > dPoint - 6) || (!a.alive && a.respawnT < 3.5)) coming++;
         }
-        if (coming >= 2) { this.mode = 'group'; this.groupUntil = now + 6.5; }
+        if (coming >= 2) { this.mode = 'group'; this.groupUntil = now + 6.5; this.groups++; }
       }
     }
     if (this.mode === 'group') {
@@ -292,7 +292,6 @@ export class Bot {
         this.repathAt = 0;
         if (this.stuckN >= 2) this.jumpNow = true;
         if (this.stuckN >= 7) {
-if (sim.stuckLog) sim.stuckLog.push({ hero: e.heroId, team: e.team, x: +e.x.toFixed(1), y: +e.y.toFixed(1), z: +e.z.toFixed(1), mode: this.mode, goal: this.goal && [+this.goal.x.toFixed(1), +this.goal.y.toFixed(1), +this.goal.z.toFixed(1)], next: this.path[this.pathI] && [+this.path[this.pathI].x.toFixed(1), +this.path[this.pathI].y.toFixed(1), +this.path[this.pathI].z.toFixed(1)], pl: this.path.length - this.pathI });
           const n = w.nearestNode(e.x, e.y, e.z);
           e.x = n.x; e.y = n.y; e.z = n.z; e.vx = e.vz = 0;
           this.stuckN = 0; this.teleports++;

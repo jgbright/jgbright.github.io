@@ -134,6 +134,7 @@ export class Fx {
     this.rangoliTex = TX.rangoli();
     this.discGeo = new THREE.CircleGeometry(1, 48).rotateX(-Math.PI / 2);
     this.ringGeo = rg;
+    this.rimGeo = new THREE.RingGeometry(0.975, 1, 72).rotateX(-Math.PI / 2);
     this.domeGeo = new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
     this.fireColor = new THREE.Color(1, 0.75, 0.4);
     this.fireTarget = new THREE.Color(1, 0.75, 0.4);
@@ -395,7 +396,7 @@ export class Fx {
       depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -3,
     }));
     disc.scale.setScalar(z.radius); disc.position.y = 0.06;
-    const rim = new THREE.Mesh(this.ringGeo, new THREE.MeshBasicMaterial({ color: rimColor, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    const rim = new THREE.Mesh(this.rimGeo, new THREE.MeshBasicMaterial({ color: rimColor, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
     rim.scale.setScalar(z.radius); rim.position.y = 0.08;
     g.add(disc, rim);
     if (z.type === 'longnight' || z.type === 'lights') {
@@ -436,15 +437,16 @@ export class Fx {
     // The Year-Fire. Its colour shows who holds it.
     if (sim) {
       const o = sim.objective;
-      if (o.owner >= 0) this.fireTarget.set(TEAMS[o.owner].color); else this.fireTarget.setRGB(1, 0.86, 0.6);
-      if (o.locked) this.fireTarget.setRGB(0.75, 0.8, 1);
+      if (o.owner >= 0) this.fireTarget.set(TEAMS[o.owner].color); else this.fireTarget.setRGB(1, 0.8, 0.45);
+      if (o.owner === 1) this.fireTarget.setRGB(0.6, 0.45, 1.6); // violet needs more blue to read as a flame
+      if (o.locked) this.fireTarget.setRGB(0.55, 0.7, 1.3);
     }
     this.fireColor.lerp(this.fireTarget, Math.min(1, dt * 3));
     const fc = this.fireColor;
-    const nFire = this.n(150, dt);
+    const nFire = this.n(95, dt);
     for (let i = 0; i < nFire; i++) {
       const a = R() * 6.283, d = Math.sqrt(R()) * 1.2;
-      this.glow.spawn(Math.cos(a) * d, 3.15, Math.sin(a) * d, (R() - 0.5) * 0.8, 2.6 + R() * 3.2, (R() - 0.5) * 0.8, 0.55 + R() * 0.45, 0.55 + R() * 0.45, fc.r * 0.62, fc.g * 0.3, fc.b * 0.14, -1.5, 0.6, -0.75);
+      this.glow.spawn(Math.cos(a) * d, 3.15, Math.sin(a) * d, (R() - 0.5) * 0.8, 2.6 + R() * 3.2, (R() - 0.5) * 0.8, 0.5 + R() * 0.4, 0.5 + R() * 0.4, fc.r * 0.55, fc.g * 0.2, fc.b * 0.07, -1.2, 0.6, -0.8);
     }
     for (let i = this.n(22, dt); i > 0; i--) this.glow.spawn((R() - 0.5) * 2, 3.6, (R() - 0.5) * 2, (R() - 0.5) * 2, 4 + R() * 4, (R() - 0.5) * 2, 2 + R(), 0.09, 1, 0.7, 0.3, -0.5, 0.3);
 

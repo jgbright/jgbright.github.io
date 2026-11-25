@@ -13,7 +13,7 @@ export function scoreboardHtml(sim, me) {
     for (const e of sim.ents) {
       if (e.team !== t || e.decoy) continue;
       const s = e.stats;
-      h += `<tr class="${e === me ? 'me' : ''} ${e.alive ? '' : 'dead'}"><td>${esc(e.name)}${e === me ? ' (you)' : ''}</td><td>${ROLE_NAMES[e.hero.role]}</td><td>${s.kills}</td><td>${s.deaths}</td><td>${s.assists}</td><td>${Math.round(s.damage)}</td><td>${Math.round(s.healing)}</td></tr>`;
+      h += `<tr class="${e === me ? 'row-me' : ''} ${e.alive ? '' : 'row-dead'}"><td>${esc(e.name)}${e === me ? ' (you)' : ''}</td><td>${ROLE_NAMES[e.hero.role]}</td><td>${s.kills}</td><td>${s.deaths}</td><td>${s.assists}</td><td>${Math.round(s.damage)}</td><td>${Math.round(s.healing)}</td></tr>`;
     }
   }
   return h + '</table>';

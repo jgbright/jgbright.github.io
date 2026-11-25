@@ -32,7 +32,7 @@ export class GameView {
     this.heroes = new Map();
     this.viewModel = null; this.viewHero = null;
     this.sim = null; this.human = null;
-    this.time = 0; this.shakeAmt = 0; this.dip = 0; this.camY = 0; this.zoom = 0;
+    this.time = 0; this.shakeAmt = 0; this.dip = 0; this.camY = 0; this.zoom = 0; this.recoil = 0;
     this.deathCam = new THREE.Vector3(); this.deathLook = new THREE.Vector3();
     this.menuHero = null; this.menuAngle = 0;
 
@@ -240,7 +240,11 @@ export class GameView {
     switch (ev.t) {
       case 'shot': case 'fire': {
         const h = this.heroes.get(ev.ent.id); if (h) h.model.kick();
-        if (ev.ent === this.firstPerson && this.viewModel) this.viewModel.kick();
+        if (ev.ent === this.firstPerson && this.viewModel) {
+          this.viewModel.kick();
+          // A small camera kick. It is only a picture: it does not move your aim.
+          this.recoil = Math.min(0.05, this.recoil + (ev.ent.heroId === 'tamsin' ? 0.028 : ev.ent.heroId === 'marta' ? 0.0015 : 0.004));
+        }
         break;
       }
       case 'cast': if (ev.ent === this.firstPerson && this.viewModel) this.viewModel.cast(ev.slot); break;
@@ -329,6 +333,7 @@ export class GameView {
     // Camera.
     this.shakeAmt = Math.max(0, this.shakeAmt - dt * 2.4);
     this.dip = Math.max(0, this.dip - dt * 0.9);
+    this.recoil *= Math.exp(-dt * 14);
     let targetFov = this.fov;
     if (fp) {
       const e = fp;
@@ -339,7 +344,7 @@ export class GameView {
       const yaw = look ? look.yaw : e.yaw, pitch = look ? look.pitch : e.pitch;
       const s = this.shakeAmt * this.shakeAmt;
       cam.position.set(x + (Math.random() - 0.5) * s * 0.12, this.camY + e.hero.height - 0.18 - this.dip + (Math.random() - 0.5) * s * 0.12, z + (Math.random() - 0.5) * s * 0.12);
-      cam.rotation.set(pitch + (Math.random() - 0.5) * s * 0.02, yaw + (Math.random() - 0.5) * s * 0.02, 0);
+      cam.rotation.set(pitch + this.recoil + (Math.random() - 0.5) * s * 0.02, yaw + (Math.random() - 0.5) * s * 0.02, 0);
       this.zoom = lerp(this.zoom, e.zoom ? 1 : 0, Math.min(1, dt * 14));
       if (e.hero.weapon.zoom) targetFov = this.fov / lerp(1, e.hero.weapon.zoom, this.zoom);
       if (this.viewModel) {
@@ -348,7 +353,6 @@ export class GameView {
         const wpn = e.hero.weapon;
         vs.speed = Math.hypot(e.vx, e.vz); vs.onGround = e.onGround; vs.firing = e.flaming || sim.time - e.lastShot < 0.15;
         vs.time = time; vs.zoom = this.zoom; vs.reload = e.reloadT > 0 ? 1 - e.reloadT / wpn.reload : 0; vs.flaming = e.flaming;
-        this.viewModel.group.visible = !sim.invisible(e) || true;
         this.viewModel.update(dt, vs);
       } else if (this.spectate) this.setViewModel(e.heroId);
       this.deathCam.copy(cam.position);

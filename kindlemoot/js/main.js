@@ -220,7 +220,7 @@ window.addEventListener('contextmenu', (e) => { if (state === 'playing') e.preve
 document.addEventListener('mousemove', (e) => {
   if (state !== 'playing' || !human) return;
   if (document.pointerLockElement !== canvas && !(NOLOCK && (e.buttons & 1))) return;
-  let k = 0.0022 * settings.sensitivity;
+  let k = 0.0013 * settings.sensitivity; // radians for each mouse count at sensitivity 1
   if (human.zoom) k /= human.hero.weapon.zoom;
   look.yaw -= e.movementX * k;
   look.pitch -= e.movementY * k * (settings.invertY ? -1 : 1);

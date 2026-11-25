@@ -34,7 +34,7 @@ function runMatch(job) {
   const ents = sim.ents.filter((e) => !e.decoy).map((e) => {
     if (!Number.isFinite(e.x + e.y + e.z + e.hp)) bad++;
     const s = e.stats;
-    return { hero: e.heroId, team: e.team, k: s.kills, d: s.deaths, a: s.assists, dmg: s.damage, heal: s.healing, ults: s.ults, c0: s.casts[0], c1: s.casts[1], shots: s.shots, hits: s.hits, point: s.pointTime, tele: e.bot.teleports };
+    return { hero: e.heroId, team: e.team, k: s.kills, d: s.deaths, a: s.assists, dmg: s.damage, heal: s.healing, ults: s.ults, c0: s.casts[0], c1: s.casts[1], shots: s.shots, hits: s.hits, point: s.pointTime, tele: e.bot.teleports, retreats: e.bot.retreats, groups: e.bot.groups, packs: s.packs };
   });
   return { id: job.id, tag: job.tag, teams: job.teams, winner: sim.winner, time: sim.time, score: sim.objective.score.slice(), firstCap, ents, bad };
 }
@@ -125,14 +125,14 @@ if (!isMainThread) {
     console.log(`MIRROR (${g.length} matches): Dawn side wins ${pct(w0)} ±${ci(w0, g.length)}; the troupe with the first capture wins ${pct(fc)}`);
     out.mirror = { n: g.length, dawn: w0, firstCapWins: fc };
     // Per-hero numbers from the mirror matches.
-    console.log('\n  hero     stops falls  dmg/min heal/min ults  abil1 abil2  hit%  fire-time');
+    console.log('\n  hero     stops falls  dmg/min heal/min ults  abil1 abil2  hit%  fire-time retreats group-ups plates');
     out.heroes = {};
     for (const id of HERO_IDS) {
       const es = g.flatMap((r) => r.ents.filter((e) => e.hero === id).map((e) => ({ ...e, min: r.time / 60 })));
       const m = (f) => es.reduce((a, e) => a + f(e), 0) / es.length;
-      const row = { k: m((e) => e.k), d: m((e) => e.d), dmg: m((e) => e.dmg / e.min), heal: m((e) => e.heal / e.min), ults: m((e) => e.ults), c0: m((e) => e.c0), c1: m((e) => e.c1), acc: m((e) => e.hits / Math.max(1, e.shots)), point: m((e) => e.point / (e.min * 60)) };
+      const row = { k: m((e) => e.k), d: m((e) => e.d), dmg: m((e) => e.dmg / e.min), heal: m((e) => e.heal / e.min), ults: m((e) => e.ults), c0: m((e) => e.c0), c1: m((e) => e.c1), acc: m((e) => e.hits / Math.max(1, e.shots)), point: m((e) => e.point / (e.min * 60)), retreats: m((e) => e.retreats), groups: m((e) => e.groups), packs: m((e) => e.packs) };
       out.heroes[id] = row;
-      console.log(`  ${id.padEnd(8)} ${row.k.toFixed(1).padStart(5)} ${row.d.toFixed(1).padStart(5)} ${row.dmg.toFixed(0).padStart(8)} ${row.heal.toFixed(0).padStart(8)} ${row.ults.toFixed(1).padStart(4)} ${row.c0.toFixed(1).padStart(6)} ${row.c1.toFixed(1).padStart(5)} ${pct(row.acc)} ${pct(row.point)}`);
+      console.log(`  ${id.padEnd(8)} ${row.k.toFixed(1).padStart(5)} ${row.d.toFixed(1).padStart(5)} ${row.dmg.toFixed(0).padStart(8)} ${row.heal.toFixed(0).padStart(8)} ${row.ults.toFixed(1).padStart(4)} ${row.c0.toFixed(1).padStart(6)} ${row.c1.toFixed(1).padStart(5)} ${pct(row.acc)} ${pct(row.point)} ${row.retreats.toFixed(1).padStart(8)} ${row.groups.toFixed(1).padStart(8)} ${row.packs.toFixed(1).padStart(6)}`);
     }
     console.log('');
   }

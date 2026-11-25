@@ -37,7 +37,7 @@
   var q = new URLSearchParams(location.search);
   var coarse = matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
   var small = Math.min(window.innerWidth, window.innerHeight) < 480;
-  if ((coarse || small) && !q.has('desktop')) {
+  if ((coarse || small || q.has('phone')) && !q.has('desktop')) { // ?phone shows this message on a desktop, for testing
     document.getElementById('loading').hidden = true;
     document.getElementById('phone').hidden = false;
     return;

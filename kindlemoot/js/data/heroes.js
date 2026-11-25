@@ -380,9 +380,9 @@ export const TEAMS = [
 
 // Bot skill levels. Balance tests use "normal".
 export const DIFFICULTY = {
-  easy:   { label: 'Gentle',  aimError: 3.4, aimSpeed: 5.5, reaction: 0.55, abilityDelay: 1.6, ultSense: 0.5, strafe: 0.4, headAim: 0.0 },
+  easy:   { label: 'Gentle',  aimError: 2.8, aimSpeed: 6.5, reaction: 0.45, abilityDelay: 1.3, ultSense: 0.6, strafe: 0.5, headAim: 0.0 },
   normal: { label: 'Fair',    aimError: 2.0, aimSpeed: 8,   reaction: 0.32, abilityDelay: 0.7, ultSense: 0.8, strafe: 0.7, headAim: 0.15 },
-  hard:   { label: 'Fierce',  aimError: 1.1, aimSpeed: 11,  reaction: 0.18, abilityDelay: 0.3, ultSense: 1.0, strafe: 1.0, headAim: 0.35 },
+  hard:   { label: 'Fierce',  aimError: 1.5, aimSpeed: 9.5, reaction: 0.24, abilityDelay: 0.4, ultSense: 1.0, strafe: 0.9, headAim: 0.28 },
 };
 
 export const WORLD_TEXT = {

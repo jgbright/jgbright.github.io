@@ -91,7 +91,7 @@ export class Sim {
       dots: [], pounce: false, drums: null, lastHurt: -99, lastHurtBy: null, hurtBy: new Map(),
       lastShot: -99,
       cmd: { moveX: 0, moveZ: 0, yaw: 0, pitch: 0, jump: false, fire: false, alt: false, a1: false, a2: false, ult: false, reload: false },
-      stats: { kills: 0, deaths: 0, assists: 0, damage: 0, healing: 0, pointTime: 0, ults: 0, casts: [0, 0], shots: 0, hits: 0, blocked: 0 },
+      stats: { kills: 0, deaths: 0, assists: 0, damage: 0, healing: 0, pointTime: 0, ults: 0, casts: [0, 0], shots: 0, hits: 0, blocked: 0, packs: 0 },
     };
   }
 
@@ -252,7 +252,7 @@ export class Sim {
     const a = Math.min(amount, target.maxHp - target.hp);
     if (a <= 0) return 0;
     target.hp += a;
-    if (src && src !== target || (src && src === target)) {
+    if (src) {
       src.stats.healing += a;
       if (src.ultUntil <= this.time) src.ult = Math.min(src.hero.ult.cost, src.ult + a * RULES.ultPerHeal);
     }
@@ -594,6 +594,7 @@ export class Sim {
         const dx = e.x - p.x, dz = e.z - p.z;
         if (dx * dx + dz * dz > (RULES.packRadius + e.hero.radius) ** 2 || Math.abs(e.y - p.y) > 1.5) continue;
         this.heal(e, RULES.packHeal, null, true);
+        e.stats.packs++;
         p.readyAt = this.time + RULES.packRespawn;
         this.events.push({ t: 'pack', index: i, ent: e });
         break;
