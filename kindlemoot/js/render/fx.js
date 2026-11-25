@@ -381,10 +381,10 @@ export class Fx {
     const mat = new THREE.MeshBasicMaterial({ map: tex, color: friendly ? 0x66ffa0 : 0xff7a5a, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
     const m = new THREE.Mesh(new THREE.PlaneGeometry(b.w, b.h), mat);
     m.position.set(b.x, b.y + b.h / 2, b.z); m.rotation.y = b.yaw; m.renderOrder = 4;
-    const back = new THREE.Mesh(m.geometry, new THREE.MeshBasicMaterial({ color: friendly ? 0x1f8f5a : 0xb0402a, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false }));
+    const back = new THREE.Mesh(m.geometry, new THREE.MeshBasicMaterial({ color: friendly ? 0x1f8f5a : 0xb0402a, transparent: true, opacity: friendly ? 0.04 : 0.16, side: THREE.DoubleSide, depthWrite: false }));
     m.add(back);
     this.scene.add(m);
-    this.barriers.set(b.id, { m, b, back, hit: 0 });
+    this.barriers.set(b.id, { m, b, back, hit: 0, friendly });
   }
 
   addZone(z, human) {
@@ -531,7 +531,7 @@ export class Fx {
         const b = bv.b;
         bv.hit = Math.max(0, bv.hit - dt * 5);
         const left = b.until - sim.time;
-        bv.m.material.opacity = (0.25 + 0.35 * (b.hp / b.maxHp) + bv.hit * 0.5) * (left < 1 ? 0.5 + 0.5 * Math.abs(Math.sin(sim.time * 14)) : 1);
+        bv.m.material.opacity = (bv.friendly ? 0.45 : 1) * (0.25 + 0.35 * (b.hp / b.maxHp) + bv.hit * 0.5) * (left < 1 ? 0.5 + 0.5 * Math.abs(Math.sin(sim.time * 14)) : 1);
         bv.m.material.map.offset.y = time * 0.08;
       }
       // Deployables.

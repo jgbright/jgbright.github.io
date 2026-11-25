@@ -19,6 +19,8 @@ export class GameView {
   constructor(canvas, map, quality, fov) {
     this.canvas = canvas; this.map = map; this.quality = quality; this.fov = fov || 74;
     const r = this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', stencil: false });
+    // Shader checks slow start-up and print driver warnings. Add ?debug to the address to turn them on.
+    r.debug.checkShaderErrors = new URLSearchParams(location.search).has('debug');
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 1.12;
