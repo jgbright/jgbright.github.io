@@ -1,0 +1,17 @@
+{
+  "name": "jgbright.github.io",
+  "private": true,
+  "type": "module",
+  "description": "Source of jgbright.com. esbuild builds the site into dist/.",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs --serve",
+    "smoke": "node kindlemoot/tools/smoke.mjs 6"
+  },
+  "dependencies": {
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}
