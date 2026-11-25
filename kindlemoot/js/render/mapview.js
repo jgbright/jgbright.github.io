@@ -74,17 +74,18 @@ export function buildMap(map, scene, quality) {
     ground: new THREE.MeshStandardMaterial({ ...T.cobble, roughness: 0.85, metalness: 0.05, normalScale: new THREE.Vector2(1.1, 1.1) }),
     stone: new THREE.MeshStandardMaterial({ ...T.stone, roughness: 0.9 }),
     dais: new THREE.MeshStandardMaterial({ ...T.stone, roughness: 0.7, color: 0xcfc4d8 }),
-    facade: new THREE.MeshStandardMaterial({ ...T.facadeA, roughness: 0.95, emissive: 0xffffff, emissiveIntensity: 1.6 }),
-    plaster: new THREE.MeshStandardMaterial({ ...T.plaster, roughness: 0.95, emissive: 0xffffff, emissiveIntensity: 1.6 }),
-    back: new THREE.MeshStandardMaterial({ ...T.facadeB, roughness: 1, emissive: 0xffffff, emissiveIntensity: 1.3, color: 0x8f86a0 }),
+    facade: new THREE.MeshStandardMaterial({ ...T.facadeA, roughness: 0.95, emissive: 0xffffff, emissiveIntensity: 1.0 }),
+    plaster: new THREE.MeshStandardMaterial({ ...T.plaster, roughness: 0.95, emissive: 0xffffff, emissiveIntensity: 1.0 }),
+    back: new THREE.MeshLambertMaterial({ map: T.facadeB.map, emissiveMap: T.facadeB.emissiveMap, emissive: 0xffffff, emissiveIntensity: 0.8, color: 0x8f86a0 }),
     timber: new THREE.MeshStandardMaterial({ ...T.darkWood, roughness: 0.8 }),
     crate: new THREE.MeshStandardMaterial({ ...T.wood, roughness: 0.75 }),
     cart: new THREE.MeshStandardMaterial({ ...T.wood, roughness: 0.6, color: 0xbfd8e8 }),
     stall: new THREE.MeshStandardMaterial({ ...T.wood, roughness: 0.7, color: 0xe8c9a0 }),
-    brazier: new THREE.MeshStandardMaterial({ color: 0xb8793a, roughness: 0.32, metalness: 1 }),
+    brazier: new THREE.MeshStandardMaterial({ ...T.stone, color: 0xe0b890, roughness: 0.6, metalness: 0.2 }),
+    brass: new THREE.MeshStandardMaterial({ color: 0xd9a050, roughness: 0.35, metalness: 0.85 }),
     post: new THREE.MeshStandardMaterial({ color: 0x23202a, roughness: 0.45, metalness: 0.9 }),
-    roof: new THREE.MeshStandardMaterial({ color: 0x2c2a3a, roughness: 0.8 }),
-    snow: new THREE.MeshStandardMaterial({ color: 0xeaf2ff, roughness: 0.6 }),
+    roof: new THREE.MeshLambertMaterial({ color: 0x2c2a3a }),
+    snow: new THREE.MeshLambertMaterial({ color: 0xdfe8f5 }),
   };
   for (const k of ['ground']) { for (const t of [M[k].map, M[k].normalMap, M[k].roughnessMap]) t.repeat.set(1, 1); }
 
@@ -210,13 +211,13 @@ export function buildMap(map, scene, quality) {
       p.castShadow = true; root.add(p);
     }
   });
-  const lights = [];
+  const postLights = [];
   posts.forEach((s) => {
     const cx = (s.x0 + s.x1) / 2, cz = (s.z0 + s.z1) / 2;
     const l = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 8), lampMat);
     l.position.set(cx, s.y1 + 0.35, cz); root.add(l);
     const pl = new THREE.PointLight(0xffb866, 30, 22, 2);
-    pl.position.set(cx, s.y1 + 0.4, cz); root.add(pl); lights.push(pl);
+    pl.position.set(cx, s.y1 + 0.4, cz); root.add(pl); postLights.push(pl);
   });
 
   // ----- String lights and paper flags -----------------------------------
@@ -245,7 +246,7 @@ export function buildMap(map, scene, quality) {
   bulbs.forEach((p, i) => {
     dummy.position.set(p[0], p[1], p[2]); dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(1); dummy.updateMatrix();
     bulbMesh.setMatrixAt(i, dummy.matrix);
-    bulbMesh.setColorAt(i, col.setHex(BULB_COLORS[i % BULB_COLORS.length]).multiplyScalar(3.2));
+    bulbMesh.setColorAt(i, col.setHex(BULB_COLORS[i % BULB_COLORS.length]).multiplyScalar(1.7));
   });
   bulbMesh.frustumCulled = false;
   root.add(bulbMesh);
@@ -306,7 +307,7 @@ export function buildMap(map, scene, quality) {
   for (let z = -18.6; z <= -13.4; z += 0.8) diyaPts.push([10.3, map.terraceHeight + 0.06, z]);
   for (let i = 0; i < 44; i++) { const a = (i / 44) * 6.283; diyaPts.push([Math.cos(a) * 7.25, 0.36, Math.sin(a) * 7.25]); }
   for (let z = -8; z <= 8; z += 1) diyaPts.push([43.2, 0.06, z < -4.2 || z > 4.2 ? z : 99]);
-  const diyas = new THREE.InstancedMesh(new THREE.SphereGeometry(0.07, 6, 4), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xffb347).multiplyScalar(3.5) }), diyaPts.length);
+  const diyas = new THREE.InstancedMesh(new THREE.SphereGeometry(0.07, 6, 4), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xffb347).multiplyScalar(2) }), diyaPts.length);
   diyaPts.forEach((p, i) => { dummy.position.set(p[0], p[1], p[2]); dummy.rotation.set(0, 0, 0); dummy.updateMatrix(); diyas.setMatrixAt(i, dummy.matrix); });
   diyas.frustumCulled = false; root.add(diyas);
   const mariPts = [];
@@ -324,12 +325,12 @@ export function buildMap(map, scene, quality) {
 
   // Rangoli on the dais.
   const rangoliTex = TX.rangoli();
-  const inlay = new THREE.Mesh(new THREE.CircleGeometry(6.6, 48), new THREE.MeshStandardMaterial({ map: rangoliTex, transparent: true, opacity: 0.55, roughness: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  const inlay = new THREE.Mesh(new THREE.CircleGeometry(6.6, 48), new THREE.MeshStandardMaterial({ map: rangoliTex, transparent: true, opacity: 0.42, roughness: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
   inlay.rotation.x = -Math.PI / 2; inlay.position.set(0, map.point.y + 0.012, 0); inlay.receiveShadow = true;
   root.add(inlay);
 
   // The Year-Fire bowl.
-  const bowl = new THREE.Mesh(new THREE.CylinderGeometry(1.75, 0.9, 0.7, 20, 1, true), M.brazier);
+  const bowl = new THREE.Mesh(new THREE.CylinderGeometry(1.75, 0.9, 0.7, 20, 1, true), M.brass);
   bowl.material.side = THREE.DoubleSide;
   bowl.position.set(0, 2.95, 0); bowl.castShadow = true; root.add(bowl);
   const coals = new THREE.Mesh(new THREE.CircleGeometry(1.6, 20), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xff6a1a).multiplyScalar(2.5) }));
@@ -375,13 +376,13 @@ export function buildMap(map, scene, quality) {
         gl_FragColor = vec4(c, 1.0);
       }`,
   }));
-  sky.renderOrder = -10;
+  sky.renderOrder = 10; // drawn after the walls, so hidden sky costs nothing
   scene.add(sky);
   scene.fog = new THREE.FogExp2(0x2a2038, 0.0105);
 
   // Floating paper lanterns.
   const NL = quality === 'low' ? 50 : 140;
-  const skyL = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.5, 0.36, 0.9, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xffa040).multiplyScalar(2.2), fog: false }), NL);
+  const skyL = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.5, 0.36, 0.9, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xffa040).multiplyScalar(1.5), fog: false }), NL);
   const lp = [];
   for (let i = 0; i < NL; i++) lp.push([(rnd() - 0.5) * 320, 14 + rnd() * 80, (rnd() - 0.5) * 240, 0.5 + rnd() * 0.9, rnd() * 6.28]);
   skyL.frustumCulled = false; scene.add(skyL);
@@ -398,29 +399,27 @@ export function buildMap(map, scene, quality) {
   });
 
   // ----- Lights ----------------------------------------------------------
-  const hemi = new THREE.HemisphereLight(0x8e9cff, 0x4a3328, 1.15);
+  const hemi = new THREE.HemisphereLight(0x9aa6ff, 0x5a4034, 1.5);
   scene.add(hemi);
   const moon = new THREE.DirectionalLight(0xbfd0ff, 2.1);
   moon.position.set(-38, 62, -50);
   moon.target.position.set(0, 0, 0);
   scene.add(moon, moon.target);
-  moon.castShadow = quality !== 'low';
-  const sm = quality === 'high' ? 4096 : 2048;
-  moon.shadow.mapSize.set(sm, sm);
+  moon.shadow.mapSize.set(2048, 2048);
   const sc = moon.shadow.camera;
   sc.left = -62; sc.right = 62; sc.top = 40; sc.bottom = -40; sc.near = 10; sc.far = 160;
   moon.shadow.bias = -0.0004; moon.shadow.normalBias = 0.05;
-  const fire = new THREE.PointLight(0xffa24a, 260, 46, 1.8);
-  fire.position.set(0, 4.3, 0);
+  const fire = new THREE.PointLight(0xffa24a, 150, 50, 1.7);
+  fire.position.set(0, 5.4, 0);
   scene.add(fire);
   const fills = [];
-  if (quality !== 'low') {
+  {
     for (const [x, y, z, c, i] of [[-33, 6, 0, 0xffb070, 70], [33, 6, 0, 0xff5a3a, 70], [0, 5, 20, 0xffc890, 45], [0, 5, -20, 0xffc890, 45]]) {
       const l = new THREE.PointLight(c, i, 34, 2); l.position.set(x, y, z); scene.add(l); fills.push(l);
     }
   }
   anim.push((time) => { fire.intensity = fire.userData.base * (0.88 + 0.12 * Math.sin(time * 11) * Math.sin(time * 7.3) + 0.06 * Math.sin(time * 23)); });
-  fire.userData.base = 260;
+  fire.userData.base = 150;
 
-  return { root, sky, moon, hemi, fire, fills, anim, materials: M, rangoliTex };
+  return { root, sky, moon, hemi, fire, fills, posts: postLights, anim, materials: M, rangoliTex };
 }

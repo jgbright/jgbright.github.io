@@ -13,13 +13,13 @@ const AUTO = params.has('auto');            // test mode: a bot plays your slot
 const NOLOCK = params.has('nolock') || AUTO; // test mode: play without pointer lock
 const SPEED = Math.max(0.1, Math.min(16, +(params.get('speed') || 1)));
 
-const DEFAULTS = { sensitivity: 1, volume: 0.7, fov: 76, quality: 'high', invertY: false, difficulty: 'normal', comp: 'classic', hero: 'marta' };
+const DEFAULTS = { sensitivity: 1, volume: 0.7, fov: 76, quality: 'auto', invertY: false, difficulty: 'normal', comp: 'classic', hero: 'marta' };
 function loadSettings() {
   let s = {};
   try { s = JSON.parse(localStorage.getItem('kindlemoot.settings') || '{}'); } catch (e) { /* storage can be blocked */ }
   const out = { ...DEFAULTS, ...s };
   if (!HEROES[out.hero]) out.hero = DEFAULTS.hero;
-  if (!['low', 'medium', 'high'].includes(out.quality)) out.quality = DEFAULTS.quality;
+  if (!['auto', 'low', 'medium', 'high'].includes(out.quality)) out.quality = DEFAULTS.quality;
   if (!['easy', 'normal', 'hard'].includes(out.difficulty)) out.difficulty = DEFAULTS.difficulty;
   if (params.get('quality')) out.quality = params.get('quality');
   return out;
@@ -30,7 +30,7 @@ const hudRoot = document.getElementById('hud');
 const settings = loadSettings();
 const audio = new GameAudio();
 audio.setVolume(settings.volume);
-const view = new GameView(canvas, MAP, settings.quality, settings.fov);
+const view = new GameView(canvas, MAP, settings.quality === 'auto' ? 'medium' : settings.quality, settings.fov);
 const hud = new Hud(hudRoot, view, audio);
 
 const app = {
@@ -39,6 +39,28 @@ const app = {
   on: {},
 };
 const menus = new Menus(document.getElementById('ui'), app);
+
+// "Auto" graphics: time a few frames at each level and keep the best level that
+// leaves room for 60 frames each second. The answer is kept for this window size.
+const FRAME_BUDGET = 11;
+function applyQuality() {
+  if (settings.quality !== 'auto') { app.auto = null; view.setQuality(settings.quality); return; }
+  const w = canvas.clientWidth, h = canvas.clientHeight, key = w + 'x' + h;
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('kindlemoot.auto') || 'null'); } catch (e) { /* ignore */ }
+  if (!saved || saved.key !== key || params.has('retest')) {
+    saved = { key, q: 'low', scale: 1, ms: {} };
+    for (const q of ['high', 'medium', 'low']) {
+      view.setQuality(q);
+      const ms = saved.ms[q] = Math.round(view.benchmark(12, w, h) * 10) / 10;
+      if (ms < FRAME_BUDGET) { saved.q = q; break; }
+      if (q === 'low') saved.scale = Math.max(0.55, Math.min(1, Math.sqrt(FRAME_BUDGET / ms)));
+    }
+    try { localStorage.setItem('kindlemoot.auto', JSON.stringify(saved)); } catch (e) { /* ignore */ }
+  }
+  app.auto = saved;
+  view.setQuality(saved.q, saved.scale);
+}
 
 let state = 'title';      // title | select | playing | paused | swap | ended
 let sim = null, human = null, subject = null;
@@ -159,7 +181,7 @@ app.on.swap = (id) => {
 app.on.applySettings = () => {
   audio.setVolume(settings.volume);
   view.setFov(settings.fov);
-  if (view.quality !== settings.quality) view.setQuality(settings.quality);
+  if (settings.quality !== app.qualityChoice) { app.qualityChoice = settings.quality; applyQuality(); }
 };
 
 // ----- Input ---------------------------------------------------------------
@@ -263,9 +285,12 @@ function frame(t) {
 // Test and debug access. The balance tools do not use this; browser checks do.
 window.__km = {
   get sim() { return sim; }, get state() { return state; }, get human() { return human; }, get subject() { return subject; },
-  view, hud, audio, settings, perf, look, keys, mouse, latch,
+  view, hud, audio, settings, perf, app, look, keys, mouse, latch,
   start: (id) => startMatch(id || settings.hero), pause, resume, leave,
+  bench: (frames, w, h) => view.benchmark(frames, w, h),
 };
 
+app.qualityChoice = settings.quality;
+applyQuality();
 menus.title();
 requestAnimationFrame((t) => { last = t; frame(t); document.getElementById('loading').hidden = true; });

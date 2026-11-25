@@ -76,9 +76,8 @@ const ZONE_LOOK = {
 export class Fx {
   constructor(scene, quality, view) {
     this.scene = scene; this.view = view;
-    const glowTex = TX.glow();
+    const glowTex = this.glowTex = TX.glow();
     const n = quality === 'low' ? 2200 : quality === 'medium' ? 4500 : 7000;
-    this.rate = quality === 'low' ? 0.5 : 1;
     this.glow = new Particles(n, true, glowTex);
     this.solid = new Particles(Math.floor(n * 0.6), false, glowTex);
     scene.add(this.glow.points, this.solid.points);
@@ -108,11 +107,12 @@ export class Fx {
 
     // Flash lights.
     this.flashes = [];
-    for (let i = 0; i < (quality === 'low' ? 1 : 3); i++) {
+    for (let i = 0; i < 3; i++) {
       const l = new THREE.PointLight(0xffffff, 0, 18, 2);
       scene.add(l); this.flashes.push({ l, life: 0, max: 1, power: 0 });
     }
     this.flashI = 0;
+    this.setQuality(quality);
 
     // Projectile meshes by kind.
     const basic = (hex, mul = 2.5) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(mul) });
@@ -137,6 +137,19 @@ export class Fx {
     this.domeGeo = new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
     this.fireColor = new THREE.Color(1, 0.75, 0.4);
     this.fireTarget = new THREE.Color(1, 0.75, 0.4);
+  }
+
+  setQuality(q) {
+    this.rate = q === 'low' ? 0.5 : 1;
+    this.flashN = q === 'low' ? 0 : q === 'medium' ? 1 : 3;
+    this.flashes.forEach((f, i) => { f.l.visible = i < this.flashN; f.life = 0; });
+  }
+
+  // A count for this frame from a rate per second. The fraction is rounded by chance,
+  // so the result does not depend on the frame rate.
+  n(perSecond, dt) {
+    const x = perSecond * dt * this.rate, k = Math.floor(x);
+    return k + (R() < x - k ? 1 : 0);
   }
 
   setScale(px) { this.glow.mat.uniforms.uScale.value = px; this.solid.mat.uniforms.uScale.value = px; }
@@ -166,7 +179,8 @@ export class Fx {
     r.life = r.max = life; r.r = radius;
   }
   flash(x, y, z, color, power, life = 0.25) {
-    const f = this.flashes[this.flashI]; this.flashI = (this.flashI + 1) % this.flashes.length;
+    if (!this.flashN) return;
+    const f = this.flashes[this.flashI % this.flashN]; this.flashI++;
     f.l.position.set(x, y, z); f.l.color.set(color); f.power = power; f.life = f.max = life;
   }
   tracer(ax, ay, az, bx, by, bz, color, width, life) {
@@ -190,19 +204,21 @@ export class Fx {
       case 'shot': {
         const m = view.muzzleOf(ev.ent, tmp);
         const pip = ev.ent.heroId === 'pip';
+        const near = ev.ent === view.firstPerson ? 0.3 : 1; // your own flash is close to the eye: keep it small
         this.tracer(m.x, m.y, m.z, ev.x, ev.y, ev.z, pip ? [0xff5fa8, 0x2fd6c3, 0xffe066][(Math.random() * 3) | 0] : 0xffa040, pip ? 0.018 : 0.05, pip ? 0.07 : 0.16);
-        this.burst(this.glow, m.x, m.y, m.z, pip ? 3 : 8, pip ? 3 : 5, 0.12, pip ? 0.25 : 0.5, pip ? 0xffd0e8 : 0xffb050);
-        if (pip) this.confetti(m.x, m.y, m.z, 2, [0xff5fa8, 0x2fd6c3, 0xffe066], 2);
+        this.burst(this.glow, m.x, m.y, m.z, pip ? 3 : 8, (pip ? 3 : 5) * near, 0.12, (pip ? 0.25 : 0.5) * near, pip ? 0xffd0e8 : 0xffb050);
+        if (pip && near === 1) this.confetti(m.x, m.y, m.z, 2, [0xff5fa8, 0x2fd6c3, 0xffe066], 2);
         if (ev.hit === 'world') this.burst(this.glow, ev.x, ev.y, ev.z, pip ? 4 : 10, 4, 0.25, 0.14, 0xffc070, 9, 2);
         if (ev.hit === 'ent') this.burst(this.glow, ev.x, ev.y, ev.z, 6, 3.5, 0.2, 0.2, 0xffffff, 0, 3);
-        if (!pip) this.flash(m.x, m.y, m.z, 0xffa040, 40, 0.08);
+        if (!pip) this.flash(m.x, m.y, m.z, 0xffa040, 40 * near, 0.08);
         break;
       }
       case 'fire': {
         if (ev.ent.heroId === 'marta') break;
         const m = view.muzzleOf(ev.ent, tmp);
         const c = ev.ent.heroId === 'jun' ? 0xff6a3a : ev.ent.heroId === 'meenal' ? 0xffd060 : 0x35e0f0;
-        this.burst(this.glow, m.x, m.y, m.z, 4, 2.5, 0.12, 0.3, c);
+        const near = ev.ent === view.firstPerson ? 0.3 : 1;
+        this.burst(this.glow, m.x, m.y, m.z, 4, 2.5 * near, 0.12, 0.3 * near, c);
         break;
       }
       case 'impact': {
@@ -415,7 +431,7 @@ export class Fx {
 
   frame(dt, alpha, sim, human, camera) {
     this.time += dt;
-    const time = this.time, rate = this.rate;
+    const time = this.time;
 
     // The Year-Fire. Its colour shows who holds it.
     if (sim) {
@@ -425,12 +441,12 @@ export class Fx {
     }
     this.fireColor.lerp(this.fireTarget, Math.min(1, dt * 3));
     const fc = this.fireColor;
-    const nFire = Math.round(5 * rate);
+    const nFire = this.n(150, dt);
     for (let i = 0; i < nFire; i++) {
       const a = R() * 6.283, d = Math.sqrt(R()) * 1.2;
-      this.glow.spawn(Math.cos(a) * d, 3.15, Math.sin(a) * d, (R() - 0.5) * 0.8, 3 + R() * 3.5, (R() - 0.5) * 0.8, 0.7 + R() * 0.5, 0.9 + R() * 0.7, fc.r * 0.9, fc.g * 0.6, fc.b * 0.45, -1.5, 0.6, -0.6);
+      this.glow.spawn(Math.cos(a) * d, 3.15, Math.sin(a) * d, (R() - 0.5) * 0.8, 2.6 + R() * 3.2, (R() - 0.5) * 0.8, 0.55 + R() * 0.45, 0.55 + R() * 0.45, fc.r * 0.62, fc.g * 0.3, fc.b * 0.14, -1.5, 0.6, -0.75);
     }
-    if (R() < 0.5 * rate) this.glow.spawn((R() - 0.5) * 2, 3.6, (R() - 0.5) * 2, (R() - 0.5) * 2, 4 + R() * 4, (R() - 0.5) * 2, 2 + R(), 0.09, 1, 0.7, 0.3, -0.5, 0.3);
+    for (let i = this.n(22, dt); i > 0; i--) this.glow.spawn((R() - 0.5) * 2, 3.6, (R() - 0.5) * 2, (R() - 0.5) * 2, 4 + R() * 4, (R() - 0.5) * 2, 2 + R(), 0.09, 1, 0.7, 0.3, -0.5, 0.3);
 
     if (sim) {
       // Marta's bellows.
@@ -438,10 +454,11 @@ export class Fx {
         if (!e.flaming || !e.alive) continue;
         const m = this.view.muzzleOf(e, tmp);
         const cp = Math.cos(e.pitch), dx = -Math.sin(e.yaw) * cp, dy = Math.sin(e.pitch), dz = -Math.cos(e.yaw) * cp;
-        const n = Math.round(6 * rate);
+        const n = this.n(300, dt);
+        const size = e === this.view.firstPerson ? 0.07 : 0.3, grow = e === this.view.firstPerson ? 16 : 3.5;
         for (let i = 0; i < n; i++) {
           const v = 24 + R() * 8, s = 0.16;
-          this.glow.spawn(m.x, m.y, m.z, dx * v + (R() - 0.5) * v * s + e.vx, dy * v + (R() - 0.5) * v * s, dz * v + (R() - 0.5) * v * s + e.vz, 0.34 + R() * 0.1, 0.35, 1, 0.55 + R() * 0.3, 0.12, -2, 0.8, 3.5);
+          this.glow.spawn(m.x, m.y, m.z, dx * v + (R() - 0.5) * v * s + e.vx, dy * v + (R() - 0.5) * v * s, dz * v + (R() - 0.5) * v * s + e.vz, 0.34 + R() * 0.1, size, 0.5, 0.26 + R() * 0.14, 0.05, -2, 0.8, grow);
         }
       }
       // Projectiles.
@@ -463,7 +480,7 @@ export class Fx {
         pm.m.position.set(x, y, z);
         if (p.kind === 'cracker') pm.m.lookAt(x + p.vx, y + p.vy, z + p.vz); else { pm.m.rotation.x += dt * 9; pm.m.rotation.y += dt * 7; }
         const tr = kind.trail;
-        if (R() < 0.8 * rate) this.glow.spawn(x, y, z, (R() - 0.5) * 1.2, (R() - 0.5) * 1.2, (R() - 0.5) * 1.2, 0.22, p.kind === 'spark' ? 0.2 : 0.14, tr[0], tr[1], tr[2], p.kind === 'spark' ? 4 : 0, 1);
+        for (let i = this.n(50, dt); i > 0; i--) this.glow.spawn(x, y, z, (R() - 0.5) * 1.2, (R() - 0.5) * 1.2, (R() - 0.5) * 1.2, 0.22, p.kind === 'spark' ? 0.2 : 0.14, tr[0], tr[1], tr[2], p.kind === 'spark' ? 4 : 0, 1);
       }
       for (const [id, pm] of this.projMeshes) {
         if (seen.has(id)) continue;
@@ -477,8 +494,7 @@ export class Fx {
         zv.disc.rotation.y = age * 0.3;
         const left = z.until - sim.time;
         zv.rim.material.opacity = left < 1 ? 0.3 + 0.55 * Math.abs(Math.sin(sim.time * 12)) : 0.85;
-        const n = z.type === 'rangoli' ? 2 : 3;
-        for (let i = 0; i < n * rate; i++) {
+        for (let i = this.n(z.type === 'rangoli' ? 90 : 150, dt); i > 0; i--) {
           const a = R() * 6.283, d = Math.sqrt(R()) * r, px = z.x + Math.cos(a) * d, pz = z.z + Math.sin(a) * d;
           if (z.type === 'longnight') this.solid.spawn(px, z.y + 2 + R() * 5, pz, (R() - 0.5), -1.5 - R(), (R() - 0.5), 1.6, 0.07, 0.85, 0.92, 1, 0, 0);
           else if (z.type === 'marigold') this.solid.spawn(px, z.y + 0.1, pz, (R() - 0.5), 1 + R() * 1.5, (R() - 0.5), 1, 0.09, 1, 0.55 + R() * 0.2, 0.08, 1.5, 0.5);
@@ -510,8 +526,8 @@ export class Fx {
         const k = Math.min(1, c.t / 0.35), t = c.target;
         const tx = t.x + Math.cos(c.a + c.t * 9) * 0.9, ty = t.y + t.hero.height + 0.3 + Math.sin(c.t * 13) * 0.3, tz = t.z + Math.sin(c.a + c.t * 9) * 0.9;
         const x = c.src.x + (tx - c.src.x) * k, y = c.src.y + 2.5 + (ty - c.src.y - 2.5) * k, z = c.src.z + (tz - c.src.z) * k;
-        this.solid.spawn(x, y, z, (R() - 0.5), (R() - 0.5), (R() - 0.5), 0.25, 0.26, 0.06, 0.03, 0.1);
-        if (R() < 0.3) this.glow.spawn(x, y, z, 0, 0, 0, 0.2, 0.12, 0.6, 0.4, 1);
+        for (let j = this.n(60, dt); j > 0; j--) this.solid.spawn(x, y, z, (R() - 0.5), (R() - 0.5), (R() - 0.5), 0.25, 0.26, 0.06, 0.03, 0.1);
+        for (let j = this.n(18, dt); j > 0; j--) this.glow.spawn(x, y, z, 0, 0, 0, 0.2, 0.12, 0.6, 0.4, 1);
       }
     }
 

@@ -92,7 +92,7 @@ export const PACKS = [
 // Where each troupe appears. Team 0 looks toward +x.
 export const SPAWNS = [[], []];
 for (let i = 0; i < 6; i++) {
-  const x = -51 + (i % 2) * 3, z = -5 + Math.floor(i / 2) * 5;
+  const x = -50.5 + (i % 2) * 3, z = -2.6 + Math.floor(i / 2) * 2.6; // in line with the front door
   SPAWNS[0].push({ x, z, yaw: -Math.PI / 2 });
   SPAWNS[1].push({ x: -x, z: -z, yaw: Math.PI / 2 });
 }

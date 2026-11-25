@@ -121,15 +121,17 @@ export class Menus {
       <div class="field"><label for="s-sens">Mouse sensitivity</label><input id="s-sens" type="range" min="0.2" max="3" step="0.05" value="${st.sensitivity}"><span class="val"></span></div>
       <div class="field"><label for="s-vol">Volume</label><input id="s-vol" type="range" min="0" max="1" step="0.05" value="${st.volume}"><span class="val"></span></div>
       <div class="field"><label for="s-fov">Field of view</label><input id="s-fov" type="range" min="60" max="95" step="1" value="${st.fov}"><span class="val"></span></div>
-      <div class="field"><label>Graphics</label><div class="seg">${['low', 'medium', 'high'].map((q) => `<button class="btn small" data-q="${q}">${q[0].toUpperCase() + q.slice(1)}</button>`).join('')}</div></div>
+      <div class="field"><label>Graphics</label><div class="seg">${['auto', 'low', 'medium', 'high'].map((q) => `<button class="btn small" data-q="${q}">${q[0].toUpperCase() + q.slice(1)}</button>`).join('')}</div></div>
       <div class="field"><label>Look up and down</label><div class="seg"><button class="btn small" data-inv="0">Normal</button><button class="btn small" data-inv="1">Inverted</button></div></div>
-      <p class="note">Low turns off shadows and glow. Use it if the game does not run smoothly.</p>
+      <p class="note" id="s-qnote"></p>
       <div class="row"><button class="btn" data-a="back">Back</button></div></div>`, 'center dim');
     const upd = () => {
       s.querySelector('#s-sens').nextElementSibling.textContent = (+st.sensitivity).toFixed(2);
       s.querySelector('#s-vol').nextElementSibling.textContent = Math.round(st.volume * 100) + '%';
       s.querySelector('#s-fov').nextElementSibling.textContent = st.fov + '°';
       s.querySelectorAll('[data-q]').forEach((b) => b.classList.toggle('on', b.dataset.q === st.quality));
+      const auto = this.app.auto;
+      s.querySelector('#s-qnote').textContent = (st.quality === 'auto' && auto ? `Auto tested your computer and chose ${auto.q[0].toUpperCase() + auto.q.slice(1)}. ` : '') + 'Low turns off shadows and glow. Use it if the game does not run smoothly.';
       s.querySelectorAll('[data-inv]').forEach((b) => b.classList.toggle('on', (b.dataset.inv === '1') === !!st.invertY));
     };
     s.addEventListener('input', (e) => {

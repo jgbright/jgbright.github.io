@@ -6,6 +6,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { FXAAPass } from 'three/addons/postprocessing/FXAAPass.js';
 import { buildMap } from './mapview.js';
 import { buildHero, buildViewModel } from './heromodels.js';
 import { Fx } from './fx.js';
@@ -72,42 +73,70 @@ export class GameView {
       return g;
     });
 
+    // Soft round shadows under heroes, for the quality levels without live shadows.
+    this.blobs = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 20).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x000000, map: this.fx.glowTex, transparent: true, opacity: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }), 16);
+    this.blobs.frustumCulled = false; this.blobs.count = 0; this.blobs.renderOrder = 2;
+    this.scene.add(this.blobs);
+    this.blobM = new THREE.Matrix4();
+
     this.setQuality(quality);
     this.resize();
   }
 
   // ----- Quality and size ------------------------------------------------
 
-  setQuality(q) {
-    this.quality = q;
+  // low: no shadows, no glow, lower resolution, one light.
+  // medium: world shadows drawn once, soft blob shadows under heroes, glow.
+  // high: live shadows for everything, 4x anti-aliasing, all lights.
+  // scale: extra resolution scale (1 = full), used by the automatic choice on slow GPUs.
+  setQuality(q, scale = 1) {
+    this.quality = q; this.resScale = scale;
     const r = this.renderer, mv = this.mapView;
     const dpr = window.devicePixelRatio || 1;
-    this.pixelRatio = q === 'low' ? Math.min(dpr, 1) * 0.8 : q === 'medium' ? Math.min(dpr, 1) : Math.min(dpr, 1.25);
+    this.pixelRatio = (q === 'low' ? Math.min(dpr, 1) * 0.8 : q === 'medium' ? Math.min(dpr, 1) : Math.min(dpr, 1.25)) * scale;
     r.setPixelRatio(this.pixelRatio);
     const shadows = q !== 'low';
     if (r.shadowMap.enabled !== shadows) {
       r.shadowMap.enabled = shadows; mv.moon.castShadow = shadows;
       this.scene.traverse((o) => { if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { m.needsUpdate = true; }); } });
     }
-    const sm = q === 'high' ? 4096 : 2048;
+    const sm = q === 'high' ? 2048 : 4096;
     if (mv.moon.shadow.mapSize.x !== sm) { mv.moon.shadow.mapSize.set(sm, sm); if (mv.moon.shadow.map) { mv.moon.shadow.map.dispose(); mv.moon.shadow.map = null; } }
-    for (const l of mv.fills) l.visible = q !== 'low';
-    this.fx.rate = q === 'low' ? 0.5 : 1;
+    mv.moon.shadow.autoUpdate = q === 'high';
+    this.blobs.visible = q !== 'high';
+    for (const l of mv.fills) l.visible = q === 'high';
+    for (const l of mv.posts) l.visible = q === 'high';
+    this.fx.setQuality(q);
     if (this.composer) { this.composer.dispose(); this.composer = null; }
     if (q !== 'low') {
       const size = r.getDrawingBufferSize(new THREE.Vector2());
-      const rt = new THREE.WebGLRenderTarget(Math.max(1, size.x), Math.max(1, size.y), { type: THREE.HalfFloatType, samples: q === 'high' ? 4 : 2 });
+      const rt = new THREE.WebGLRenderTarget(Math.max(1, size.x), Math.max(1, size.y), { type: THREE.HalfFloatType, samples: this.debugSamples ?? (q === 'high' ? 4 : 0) });
       const c = this.composer = new EffectComposer(r, rt);
       c.addPass(new RenderPass(this.scene, this.camera));
-      this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), q === 'high' ? 0.5 : 0.42, 0.55, 0.92);
+      this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), q === 'high' ? 0.36 : 0.3, 0.5, 1.0);
       c.addPass(this.bloom);
       c.addPass(new OutputPass());
+      if (q === 'medium') c.addPass(new FXAAPass()); // cheap edge smoothing where 4x sampling costs too much
     }
     this.resize();
+    if (q === 'medium') this.bakeShadows();
   }
 
-  resize() {
-    const w = this.canvas.clientWidth || window.innerWidth, h = this.canvas.clientHeight || window.innerHeight;
+  // Draw the world shadows once, without the heroes. Medium quality reuses them every frame.
+  bakeShadows() {
+    const hidden = [];
+    const hide = (o) => { if (o && o.visible) { o.visible = false; hidden.push(o); } };
+    for (const h of this.heroes.values()) hide(h.model.group);
+    if (this.menuHero) hide(this.menuHero.group);
+    if (this.viewModel) hide(this.viewModel.group);
+    this.mapView.moon.shadow.needsUpdate = true;
+    this.renderer.render(this.scene, this.camera);
+    for (const o of hidden) o.visible = true;
+  }
+
+  // Pass a size to force it (the benchmark does); otherwise the canvas size is used.
+  resize(fw, fh) {
+    const w = fw || this.canvas.clientWidth || window.innerWidth, h = fh || this.canvas.clientHeight || window.innerHeight;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
@@ -116,6 +145,27 @@ export class GameView {
   }
 
   setFov(f) { this.fov = f; }
+
+  // Draw frames as fast as the GPU allows and return the mean cost of one, in
+  // milliseconds. The display refresh rate does not limit this number.
+  benchmark(frames = 40, w = 1920, h = 1080) {
+    const gl = this.renderer.getContext(), px = new Uint8Array(4);
+    const keep = this.pixelRatio;
+    this.resize(w, h);
+    const run = (n) => { for (let i = 0; i < n; i++) { this.frame(1 / 60, 1, null); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); } };
+    run(5);
+    const t0 = performance.now();
+    let done = 0;
+    while (done < frames) {
+      run(1); done++;
+      // A very slow level needs no long test.
+      if (done >= 3 && (performance.now() - t0) / done > 45) break;
+    }
+    const ms = (performance.now() - t0) / done;
+    this.pixelRatio = keep; this.renderer.setPixelRatio(keep);
+    this.resize();
+    return ms;
+  }
 
   // ----- Match life ------------------------------------------------------
 
@@ -149,6 +199,7 @@ export class GameView {
     this.viewHero = heroId;
     if (!heroId) return;
     this.viewModel = buildViewModel(heroId);
+    if (heroId === 'pip') this.viewModel.group.scale.setScalar(0.8);
     this.camera.add(this.viewModel.group);
   }
 
@@ -222,13 +273,21 @@ export class GameView {
       fp = subject && subject.alive ? subject : null;
       this.firstPerson = fp;
       const now = sim.time;
+      let nb = 0;
       for (const h of this.heroes.values()) {
         const e = h.ent, g = h.model.group;
-        const show = e.alive && e !== fp;
+        // Allies can walk through you. Hide one that stands inside the camera.
+        const inFace = fp && e.team === fp.team && Math.hypot(e.x - fp.x, e.z - fp.z) < 1.15;
+        const show = e.alive && e !== fp && !inFace;
         g.visible = show;
         if (!e.alive) { h.snap = true; continue; }
         if (e.px === undefined || h.snap || Math.hypot(e.x - e.px, e.z - e.pz) > 2.5) { h.x = e.x; h.y = e.y; h.z = e.z; h.snap = false; }
         else { h.x = lerp(e.px, e.x, alpha); h.y = lerp(e.py, e.y, alpha); h.z = lerp(e.pz, e.z, alpha); }
+        if (nb < 16 && !sim.invisible(e)) {
+          const r = e.hero.radius * 1.9;
+          this.blobM.makeScale(r, 1, r).setPosition(h.x, sim.world.groundAt(h.x, h.z, h.y) + 0.03, h.z);
+          this.blobs.setMatrixAt(nb++, this.blobM);
+        }
         if (!show) continue;
         g.position.set(h.x, h.y, h.z);
         g.rotation.y = e.yaw;
@@ -241,6 +300,8 @@ export class GameView {
         else if (e.decoy && subject && e.team === subject.team) op = 0.6;
         if (op !== h.opacity) { h.opacity = op; h.model.setOpacity(op); }
       }
+
+      this.blobs.count = nb; this.blobs.instanceMatrix.needsUpdate = true;
 
       // Objective ring.
       const o = sim.objective;
@@ -263,7 +324,7 @@ export class GameView {
         g.visible = p.readyAt <= now;
         g.position.y = p.y + 0.8 + Math.sin(time * 2 + i) * 0.1; g.rotation.y = time * 0.9;
       }
-    } else this.firstPerson = null;
+    } else { this.firstPerson = null; this.blobs.count = 0; }
 
     // Camera.
     this.shakeAmt = Math.max(0, this.shakeAmt - dt * 2.4);
