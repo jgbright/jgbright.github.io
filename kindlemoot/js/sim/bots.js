@@ -100,6 +100,8 @@ export class Bot {
       if (o.hero.role === 'support' && e.hero.role !== 'support') sc += 8;
       if (wpn.type === 'flame' && d > wpn.range * 1.6) sc -= 30;
       if (wpn.falloffEnd && d > wpn.falloffEnd * 1.3) sc -= 20;
+      // Do not all shoot the same enemy: a small cost for each ally already on it.
+      for (const a of sim.ents) if (a !== e && a.team === e.team && a.bot && a.bot.target === o) sc -= 5;
       if (sc > bs) { bs = sc; best = o; }
     }
     if (best !== this.target) this.headShot = sim.rng() < this.skill.headAim && !!wpn.crit;
@@ -200,7 +202,7 @@ export class Bot {
     const own = e.team === 0 ? -1 : 1;
     this.spotUntil = sim.time + 5 + rng() * 4;
     let x, z, y = pt.y, onPoint = false;
-    if (!force && hero.ai.hold >= 12 && rng() < 0.75) {
+    if (!force && hero.ai.perch && rng() < hero.ai.perch) {
       const list = sim.map.perches[e.team];
       const p = list[rng() < 0.55 ? 0 : 1 + Math.floor(rng() * (list.length - 1))];
       x = p.x + (rng() - 0.5) * 3; z = p.z + (rng() - 0.5) * 2; y = p.y || 0;
@@ -251,7 +253,7 @@ export class Bot {
     while (this.pathI < this.path.length) {
       const n = this.path[this.pathI];
       const d = Math.hypot(n.x - e.x, n.z - e.z);
-      if (d < 0.75 && Math.abs(n.y - e.y) < 1.6) { this.pathI++; continue; }
+      if (d < 0.75 && Math.abs(n.y - e.y) < 0.9) { this.pathI++; continue; }
       mx = (n.x - e.x) / d; mz = (n.z - e.z) / d; atGoal = false;
       break;
     }
@@ -290,6 +292,7 @@ export class Bot {
         this.repathAt = 0;
         if (this.stuckN >= 2) this.jumpNow = true;
         if (this.stuckN >= 7) {
+if (sim.stuckLog) sim.stuckLog.push({ hero: e.heroId, team: e.team, x: +e.x.toFixed(1), y: +e.y.toFixed(1), z: +e.z.toFixed(1), mode: this.mode, goal: this.goal && [+this.goal.x.toFixed(1), +this.goal.y.toFixed(1), +this.goal.z.toFixed(1)], next: this.path[this.pathI] && [+this.path[this.pathI].x.toFixed(1), +this.path[this.pathI].y.toFixed(1), +this.path[this.pathI].z.toFixed(1)], pl: this.path.length - this.pathI });
           const n = w.nearestNode(e.x, e.y, e.z);
           e.x = n.x; e.y = n.y; e.z = n.z; e.vx = e.vz = 0;
           this.stuckN = 0; this.teleports++;

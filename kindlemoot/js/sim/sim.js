@@ -3,7 +3,7 @@
 
 import { RULES, HEROES, DIFFICULTY } from '../data/heroes.js';
 import { World } from './world.js';
-import { ABILITIES, ZONES, updateDeployable } from './abilities.js';
+import { ABILITIES, ZONES, PASSIVES, updateDeployable } from './abilities.js';
 import { Bot } from './bots.js';
 
 export const DT = 1 / RULES.tickRate;
@@ -299,16 +299,19 @@ export class Sim {
     if (this.over) return;
     this.tick++;
     this.time = this.tick * DT;
-    const es = this.ents;
-    for (let i = 0; i < es.length; i++) {
-      const e = es[i];
+    const es = this.ents, n = es.length;
+    // First every bot decides, from the same picture of the world. Then everybody
+    // acts. The acting order flips each tick, so no troupe always shoots first.
+    for (let i = 0; i < n; i++) { const e = es[i]; if (e.alive && e.bot && !e.decoy) e.bot.think(DT); }
+    const fwd = (this.tick & 1) === 0;
+    for (let k = 0; k < n; k++) {
+      const e = es[fwd ? k : n - 1 - k];
       if (e.decoy) { this.updateDecoy(e); continue; }
       if (!e.alive) {
         e.respawnT -= DT;
         if (e.respawnT <= 0) this.spawn(e, false);
         continue;
       }
-      if (e.bot) e.bot.think(DT);
       this.updateEnt(e);
     }
     for (let i = es.length - 1; i >= 0; i--) if (es[i].decoy && !es[i].alive) es.splice(i, 1);
@@ -343,6 +346,7 @@ export class Sim {
       if (d.until <= now) e.dots.splice(i, 1);
     }
     if (e.shield > 0 && e.shieldUntil <= now) e.shield = 0;
+    if (hero.passive) PASSIVES[hero.passive.id](this, e, hero.passive, DT);
     if (e.ultUntil <= now && e.ult < hero.ult.cost) e.ult = Math.min(hero.ult.cost, e.ult + RULES.ultPassive * DT);
 
     // Movement.

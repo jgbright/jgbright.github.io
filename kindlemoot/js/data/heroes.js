@@ -18,7 +18,7 @@ export const RULES = {
   captureTime: 5,          // seconds for one hero to light the fire
   captureBonus: [0, 1, 1.35, 1.6], // capture speed by number of heroes (3+ uses the last)
   captureDecay: 0.25,      // progress lost per second when nobody is capturing
-  scoreRate: 100 / 138,    // percent per second while a team holds the fire
+  scoreRate: 100 / 205,    // percent per second while a team holds the fire
   matchTime: 480,          // hard limit in seconds
   unlockDelay: 12,         // the fire can not be captured before this time
   // Ultimate charge.
@@ -72,7 +72,7 @@ export const HEROES = {
       {
         id: 'ward', key: 'shift', name: 'Evergreen Ward', cooldown: 13,
         desc: (a) => `Plant a wreath wall. It stops ${a.hp} damage from enemy shots for ${a.duration} s. Your team can shoot through it.`,
-        hp: 600, width: 7, height: 3.6, duration: 7, distance: 2.6,
+        hp: 650, width: 7, height: 3.6, duration: 7, distance: 2.6,
       },
       {
         id: 'slam', key: 'e', name: 'Log Drop', cooldown: 9,
@@ -96,7 +96,7 @@ export const HEROES = {
     culture: 'East and Southeast Asia',
     role: 'tank',
     difficulty: 2,
-    hp: 480,
+    hp: 440,
     speed: 5.6,
     radius: 0.6,
     height: 2.0,
@@ -114,7 +114,7 @@ export const HEROES = {
       name: 'Firecracker String',
       type: 'projectile',
       desc: (w) => `Throws ${w.rate} firecrackers each second. Each one does ${w.damage} damage.`,
-      damage: 13,
+      damage: 10,
       rate: 9,
       speed: 58,
       spread: 1.5,
@@ -126,18 +126,18 @@ export const HEROES = {
       {
         id: 'pounce', key: 'shift', name: 'Lion\'s Pounce', cooldown: 7,
         desc: (a) => `Leap where you look. Where you land, enemies within ${a.radius} m take ${a.damage} damage and are pushed away.`,
-        speed: 15, lift: 7.5, radius: 4, damage: 50, knockback: 8,
+        speed: 15, lift: 7.5, radius: 4, damage: 40, knockback: 8,
       },
       {
         id: 'luckyred', key: 'e', name: 'Lucky Red', cooldown: 13,
         desc: (a) => `Throw red envelopes. You get ${a.self} extra health and allies within ${a.radius} m get ${a.allies}. It lasts ${a.duration} s.`,
-        self: 150, allies: 75, radius: 9, duration: 5,
+        self: 130, allies: 75, radius: 9, duration: 5,
       },
     ],
     ult: {
       id: 'drums', name: 'New Year Drums', cost: 1500,
       desc: (u) => `Beat the drum ${u.beats} times. Each beat does ${u.damage} damage to enemies within ${u.radius} m and slows them. You take ${pct(u.resist)} less damage while you drum.`,
-      beats: 5, interval: 0.8, radius: 9, damage: 45, slow: 0.4, slowTime: 0.7, resist: 0.35,
+      beats: 5, interval: 0.8, radius: 9, damage: 38, slow: 0.4, slowTime: 0.7, resist: 0.35,
     },
     ai: { range: 9, hold: 3 },
   },
@@ -168,9 +168,9 @@ export const HEROES = {
       name: 'Candlelock',
       type: 'hitscan',
       desc: (w) => `A long rifle. Each shot does ${w.damage} damage, or ${w.damage * w.crit} to the head. Hold the right mouse button to aim.`,
-      damage: 72,
+      damage: 92,
       crit: 2,
-      rate: 1.2,
+      rate: 1.25,
       spread: 0.1,
       range: 120,
       mag: 6,
@@ -186,15 +186,15 @@ export const HEROES = {
       {
         id: 'jackobomb', key: 'e', name: 'Jack-o\'-Bomb', cooldown: 8,
         desc: (a) => `Throw a lantern that bursts. It does up to ${a.damage} damage within ${a.radius} m.`,
-        speed: 24, gravity: 14, radius: 4.5, damage: 90, minDamage: 30,
+        speed: 24, gravity: 14, radius: 4.5, damage: 110, minDamage: 35,
       },
     ],
     ult: {
       id: 'crows', name: 'Murder of Crows', cost: 1350,
       desc: (u) => `Send a crow at every enemy you can see within ${u.range} m. Each crow does ${u.damage} damage over ${u.duration} s.`,
-      range: 42, damage: 105, duration: 2.5,
+      range: 42, damage: 130, duration: 2.5,
     },
-    ai: { range: 24, hold: 12 },
+    ai: { range: 24, hold: 10, perch: 0.5 },
   },
 
   pip: {
@@ -205,7 +205,7 @@ export const HEROES = {
     culture: 'Spring prank days in many countries',
     role: 'damage',
     difficulty: 2,
-    hp: 200,
+    hp: 210,
     speed: 6.4,
     radius: 0.42,
     height: 1.7,
@@ -223,7 +223,7 @@ export const HEROES = {
       name: 'Party Poppers',
       type: 'hitscan',
       desc: (w) => `Two fast poppers. Each shot does ${w.damage} damage up close and less from far away.`,
-      damage: 17,
+      damage: 23,
       crit: 1.5,
       rate: 8,
       spread: 2.0,
@@ -236,20 +236,20 @@ export const HEROES = {
     },
     abilities: [
       {
-        id: 'gotcha', key: 'shift', name: 'Gotcha!', cooldown: 7,
+        id: 'gotcha', key: 'shift', name: 'Gotcha!', cooldown: 6,
         desc: (a) => `Jump ${a.distance} m in a blink. A copy of you stays behind for ${a.decoyTime} s and fools enemies.`,
         distance: 9, decoyHp: 80, decoyTime: 3,
       },
       {
         id: 'whoopee', key: 'e', name: 'Whoopee Trap', cooldown: 9,
         desc: (a) => `Throw a trap. When an enemy steps near, it does ${a.damage} damage and slows by ${pct(a.slow)} for ${a.slowTime} s.`,
-        speed: 14, gravity: 20, arm: 0.5, trigger: 2.6, radius: 3.5, damage: 65, slow: 0.5, slowTime: 1.5, life: 20,
+        speed: 14, gravity: 20, arm: 0.5, trigger: 2.6, radius: 3.5, damage: 75, slow: 0.5, slowTime: 1.5, life: 20,
       },
     ],
     ult: {
       id: 'jackbox', name: 'Jack-in-the-Box', cost: 1300,
       desc: (u) => `Throw a big box. After ${u.fuse} s it springs open. Enemies within ${u.radius} m take ${u.damage} damage and fly high into the air.`,
-      speed: 16, gravity: 20, fuse: 0.9, radius: 7, damage: 70, lift: 13, knockback: 6,
+      speed: 16, gravity: 20, fuse: 0.9, radius: 7, damage: 90, lift: 13, knockback: 6,
     },
     ai: { range: 7, hold: 5 },
   },
@@ -280,8 +280,8 @@ export const HEROES = {
       name: 'Sparkler',
       type: 'projectile',
       desc: (w) => `Throws sparks. A spark heals an ally for ${w.heal} or does ${w.damage} damage to an enemy.`,
-      damage: 26,
-      heal: 36,
+      damage: 24,
+      heal: 24,
       rate: 2.6,
       speed: 62,
       spread: 0.2,
@@ -293,18 +293,18 @@ export const HEROES = {
       {
         id: 'rangoli', key: 'shift', name: 'Rangoli', cooldown: 13,
         desc: (a) => `Draw a pattern of light at your feet. Allies who stand on it heal ${a.heal} each second for ${a.duration} s.`,
-        radius: 5, heal: 32, duration: 6,
+        radius: 5, heal: 24, duration: 6,
       },
       {
         id: 'sweetbox', key: 'e', name: 'Sweet Box', cooldown: 9,
         desc: (a) => `Give a sweet to the ally you look at, or to yourself. It heals ${a.heal} and gives ${pct(a.speed - 1)} more speed for ${a.duration} s.`,
-        range: 22, cone: 25, heal: 80, speed: 1.25, duration: 3,
+        range: 22, cone: 25, heal: 70, speed: 1.25, duration: 3,
       },
     ],
     ult: {
       id: 'lights', name: 'Festival of Lights', cost: 1500,
       desc: (u) => `Light a hundred lamps for ${u.duration} s. Allies within ${u.radius} m heal ${u.heal} each second and take ${pct(u.resist)} less damage.`,
-      radius: 12, duration: 6, heal: 65, resist: 0.25,
+      radius: 12, duration: 6, heal: 45, resist: 0.25,
     },
     ai: { range: 14, hold: 8 },
   },
@@ -335,7 +335,7 @@ export const HEROES = {
       name: 'Serenade',
       type: 'projectile',
       desc: (w) => `Plays sharp notes. Each note does ${w.damage} damage.`,
-      damage: 26,
+      damage: 22,
       rate: 3,
       speed: 66,
       spread: 0.3,
@@ -343,16 +343,21 @@ export const HEROES = {
       mag: 12,
       reload: 1.5,
     },
+    passive: {
+      id: 'company', name: 'Good Company',
+      desc: (p) => `Always on. You and allies within ${p.radius} m heal ${p.heal} each second.`,
+      radius: 10, heal: 6,
+    },
     abilities: [
       {
-        id: 'marigold', key: 'shift', name: 'Marigold Path', cooldown: 12,
+        id: 'marigold', key: 'shift', name: 'Marigold Path', cooldown: 11,
         desc: (a) => `Play a walking song for ${a.duration} s. You and allies within ${a.radius} m heal ${a.heal} each second and move ${pct(a.speed - 1)} faster.`,
-        radius: 9, duration: 5, heal: 22, speed: 1.25,
+        radius: 9, duration: 6, heal: 28, speed: 1.25,
       },
       {
         id: 'rattle', key: 'e', name: 'Calaca Rattle', cooldown: 10,
         desc: (a) => `Shake the rattle at enemies in front of you. For ${a.duration} s they take ${pct(a.amp - 1)} more damage.`,
-        range: 16, cone: 35, duration: 4, amp: 1.25,
+        range: 16, cone: 35, duration: 4, amp: 1.3,
       },
     ],
     ult: {

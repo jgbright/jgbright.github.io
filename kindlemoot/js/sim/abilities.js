@@ -282,6 +282,16 @@ function enemies(sim, z, fn) {
   }
 }
 
+export const PASSIVES = {
+  // Don Chema: a slow heal for everybody close to him.
+  company(sim, e, def, dt) {
+    for (const o of sim.ents) {
+      if (!o.alive || o.decoy || o.team !== e.team) continue;
+      if (o === e || inRadius(sim, e.x, e.y, e.z, def.radius, o)) sim.heal(o, def.heal * dt, e, false);
+    }
+  },
+};
+
 export const ZONES = {
   longnight(sim, z) {
     enemies(sim, z, (o) => { sim.status(o, 'slow', 1 - z.def.slow, 0.25); sim.status(o, 'weak', z.def.weaken, 0.25); });

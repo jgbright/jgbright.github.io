@@ -198,6 +198,13 @@ export class World {
           if (Math.abs(this.groundAt(x, z, y - this.step + 0.01) - y) > 0.01) continue;
           if (this.blocked(x, z, y, r, h)) continue;
           if (this.ceilingAt(x, z, y + h) < y + h) continue;
+          // No nodes on the rim of a ledge or on the side edge of a ramp: bots that
+          // walk there slide off or rub along the wall below.
+          if (y > 0.6) {
+            let rim = false;
+            for (const [ox, oz] of [[0.5, 0], [-0.5, 0], [0, 0.5], [0, -0.5]]) if (this.groundAt(x + ox, z + oz, y) < y - 0.7) rim = true;
+            if (rim) continue;
+          }
           last = y;
           const node = { id: nodes.length, x, y, z, i, j, links: [], costs: [], room: -1 };
           for (const room of this.map.spawnRooms) {
@@ -210,14 +217,17 @@ export class World {
       }
     }
     for (const a of nodes) {
-      for (let di = -1; di <= 1; di++) {
-        for (let dj = -1; dj <= 1; dj++) {
+      for (let di = -2; di <= 2; di++) {
+        for (let dj = -2; dj <= 2; dj++) {
           if (!di && !dj) continue;
           const i = a.i + di, j = a.j + dj;
           if (i < 0 || j < 0 || i >= nx || j >= nz) continue;
+          const far = Math.abs(di) === 2 || Math.abs(dj) === 2;
           for (const bn of grid[i * nz + j]) {
             const dy = bn.y - a.y;
             if (dy > 1.0 || dy < -4.5) continue;
+            // Two cells away only for a jump down from a ledge.
+            if (far && dy > -1) continue;
             const end = this.walk(a.x, a.y, a.z, bn.x, bn.z, r, h);
             if (!(Math.abs(end - bn.y) < 0.2)) continue;
             const flat = Math.hypot(bn.x - a.x, bn.z - a.z);

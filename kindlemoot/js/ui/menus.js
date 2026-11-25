@@ -73,6 +73,7 @@ export class Menus {
         <div class="bio">${h.bio.map((p) => `<p>${esc(p)}</p>`).join('')}</div>
         <div class="kit">
           <div><span class="k"><kbd>Mouse 1</kbd></span><span><b>${esc(h.weapon.name)}.</b> ${esc(describe(h.weapon))}</span></div>
+          ${h.passive ? `<div><span class="k">Always</span><span><b>${esc(h.passive.name)}.</b> ${esc(describe(h.passive))}</span></div>` : ''}
           <div><span class="k"><kbd>Shift</kbd></span><span><b>${esc(h.abilities[0].name)}.</b> ${esc(describe(h.abilities[0]))} <i>${h.abilities[0].cooldown} s.</i></span></div>
           <div><span class="k"><kbd>E</kbd></span><span><b>${esc(h.abilities[1].name)}.</b> ${esc(describe(h.abilities[1]))} <i>${h.abilities[1].cooldown} s.</i></span></div>
           <div><span class="k"><kbd>Q</kbd></span><span><b>${esc(h.ult.name)} (ultimate).</b> ${esc(describe(h.ult))}</span></div>
