@@ -48,6 +48,24 @@ bot skill. Its first lines list them. Use it after each change to
 `npm run dev` also serves a model preview page at
 `/kindlemoot/tools/models.html`.
 
+## Test switches for the game page
+
+Add these to the address of the game page, for example
+`/kindlemoot/?auto&speed=8`. They are for tests; settings do not save them.
+
+- `?auto`: a bot plays your slot, and you watch. No pointer lock is needed.
+- `?speed=8`: the match runs 8 times faster (0.1 to 16).
+- `?nolock`: play without pointer lock. Drag with the left button to look.
+- `?quality=low`, `medium` or `high`: force a graphics level.
+- `?retest`: run the automatic graphics test again.
+- `?seed=123`: use a fixed random seed for the match.
+- `?phone`: show the phone message on a desktop.
+- `?debug`: turn on shader checks in the console.
+
+The page also puts a `__km` object on `window` for browser tests. For
+example, `__km.bench(40, 1920, 1080)` gives the cost of one frame in
+milliseconds.
+
 ## Deploy
 
 GitHub Pages must use the workflow: in the repository settings, open

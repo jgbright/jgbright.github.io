@@ -112,7 +112,7 @@ export class GameView {
     if (this.composer) { this.composer.dispose(); this.composer = null; }
     if (q !== 'low') {
       const size = r.getDrawingBufferSize(new THREE.Vector2());
-      const rt = new THREE.WebGLRenderTarget(Math.max(1, size.x), Math.max(1, size.y), { type: THREE.HalfFloatType, samples: this.debugSamples ?? (q === 'high' ? 4 : 0) });
+      const rt = new THREE.WebGLRenderTarget(Math.max(1, size.x), Math.max(1, size.y), { type: THREE.HalfFloatType, samples: q === 'high' ? 4 : 0 });
       const c = this.composer = new EffectComposer(r, rt);
       c.addPass(new RenderPass(this.scene, this.camera));
       this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), q === 'high' ? 0.36 : 0.3, 0.5, 1.0);
