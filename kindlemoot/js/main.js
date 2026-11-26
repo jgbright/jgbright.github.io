@@ -199,7 +199,7 @@ function clearInput() {
 
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === canvas;
-  if (locked) { lockRaw = lockTry === 'raw'; lockTry = ''; motion.avg = 0; motion.last = 0; motion.dropped = 0; }
+  if (locked) { lockRaw = lockTry === 'raw'; lockTry = ''; restMotion(); }
   aim.add(locked ? KIND.lock : KIND.unlock, lockRaw ? FLAG.raw : 0, 0, 0, settings.sensitivity, 0, look.pitch, look.pitch, look.yaw, locked ? (lockRaw ? 'raw' : 'plain') : '');
   if (locked) {
     if ((state === 'paused' || state === 'swap') && sim && !sim.over) { state = 'playing'; menus.clear(); audio.setPaused(false); last = performance.now(); }
@@ -265,8 +265,9 @@ window.addEventListener('contextmenu', (e) => { if (state === 'playing') e.preve
 // second large move in a row always counts.
 const PITCH_MAX = 1.54;
 const SPIKE_MIN = 250;  // mouse counts in one move; smaller moves always count
-const SPIKE_RATIO = 6;  // ... and a drop needs this many times the recent size
-const motion = { avg: 0, last: 0, dropped: 0 };
+const SPIKE_RATIO = 4;  // ... and a drop needs this many times the largest of the last few moves
+const motion = { recent: new Float32Array(4), i: 0, last: 0, dropped: 0 };
+function restMotion() { motion.recent.fill(0); motion.last = 0; motion.dropped = 0; }
 document.addEventListener('mousemove', (e) => {
   if (state !== 'playing' || !human) return;
   const locked = document.pointerLockElement === canvas;
@@ -282,16 +283,17 @@ document.addEventListener('mousemove', (e) => {
     return;
   }
   const size = Math.max(Math.abs(dx), Math.abs(dy));
-  if (e.timeStamp - motion.last > 100) motion.avg = 0; // the mouse was at rest
+  if (e.timeStamp - motion.last > 100) restMotion(); // the mouse was at rest
   motion.last = e.timeStamp;
-  const spike = size > SPIKE_MIN && size > SPIKE_RATIO * Math.max(motion.avg, 20) && !motion.dropped;
-  motion.avg += (size - motion.avg) * 0.3;
+  const r = motion.recent, recentMax = Math.max(r[0], r[1], r[2], r[3], 20);
+  const spike = size > SPIKE_MIN && size > SPIKE_RATIO * recentMax && !motion.dropped;
   if (spike) {
     motion.dropped = 1;
     aim.add(KIND.move, flags | FLAG.spike, dx, dy, sens, k, p0, p0, look.yaw);
     return;
   }
   motion.dropped = 0;
+  r[motion.i] = size; motion.i = (motion.i + 1) & 3;
   look.yaw -= dx * k;
   let p = p0 - dy * k * inv;
   if (p > PITCH_MAX) { p = PITCH_MAX; flags |= FLAG.clampUp; } else if (p < -PITCH_MAX) { p = -PITCH_MAX; flags |= FLAG.clampDown; }
