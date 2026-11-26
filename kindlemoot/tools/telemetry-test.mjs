@@ -249,6 +249,18 @@ await test('the memory store keeps to the limit and drops the oldest rows first'
   assert.equal(b[0].first, 90); // the first three batches went
 });
 
+await test('a pagehide flush writes at once and sends with keepalive', async () => {
+  const { tel, aim, calls } = newTel('http://localhost:8377/kindlemoot/?otel');
+  await tel.start();
+  aimRows(aim, 9);
+  tel.flush('pagehide');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].init.keepalive, true);
+  const p = parseExport(await tel.exportText());
+  assert.equal(p.sessions[0].session.rows, 9);
+  assert.equal(p.sessions[0].batches[0].reason, 'pagehide');
+});
+
 await test('a page load with no rows stores no session', async () => {
   const { tel } = newTel('https://jgbright.com/kindlemoot/');
   await tel.start();

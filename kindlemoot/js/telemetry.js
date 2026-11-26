@@ -77,6 +77,7 @@ class IdbStore {
     tx.objectStore('sessions').put(session);
     const store = tx.objectStore('batches');
     const keys = batches.map((b) => req(store.add(b)));
+    if (tx.commit) tx.commit(); // do not wait for the end of the task: the page may be closing
     await done(tx);
     return Promise.all(keys);
   }
@@ -153,7 +154,9 @@ export class Telemetry {
     this.ready = this.run(async () => {
       const idb = this.env.indexedDB;
       if (idb) {
-        try { this.store = await IdbStore.open(idb); } catch (e) { this.fail('open', e); }
+        // An open that never answers must not hold up the rows: after 3 s, use memory.
+        const late = new Promise((_, reject) => setTimeout(() => reject(new Error('open timed out')), 3000));
+        try { this.store = await Promise.race([IdbStore.open(idb), late]); } catch (e) { this.fail('open', e); }
       }
       await this.trim();
     });
@@ -175,10 +178,28 @@ export class Telemetry {
       batches.push({ v: SCHEMA, session: this.session.id, stream: s.name, sv: s.version, first: d.first, lost: d.lost, fields: s.fields, rows: d.rows, reason });
     }
     if (!batches.length) return this.queue;
+    if (reason === 'pagehide' || reason === 'hidden') return this.closing(batches);
     return this.run(async () => {
       await this.save(batches);
-      if (this.otel) await this.send(batches, reason === 'pagehide');
+      if (this.otel) await this.send(batches, false);
     });
+  }
+
+  // The page may be going away. A queued job would start too late, so the write
+  // starts now, in this task, and the request uses keepalive. No trim here.
+  closing(batches) {
+    const s = this.session;
+    s.end = Date.now();
+    s.rows += batches.reduce((a, b) => a + b.rows.length, 0);
+    s.batches += batches.length;
+    const store = this.store;
+    try {
+      store.write({ ...s }, batches).then((keys) => {
+        if (this.store === store) batches.forEach((b, i) => this.written.push({ key: keys[i], rows: b.rows.length }));
+      }, (e) => this.fail('write', e));
+    } catch (e) { this.fail('write', e); }
+    if (this.otel) this.send(batches, true);
+    return this.queue;
   }
 
   // One job at a time, in order. A failed job never stops the next.
