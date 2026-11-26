@@ -7,6 +7,7 @@ import { GameView } from './render/view.js';
 import { GameAudio } from './audio.js';
 import { Hud } from './ui/hud.js';
 import { Menus } from './ui/menus.js';
+import { AimLog, KIND, FLAG } from './aimlog.js';
 
 const params = new URLSearchParams(location.search);
 const AUTO = params.has('auto');            // test mode: a bot plays your slot
@@ -71,6 +72,16 @@ const keys = Object.create(null);
 const mouse = { fire: false, alt: false };
 const latch = { a1: false, a2: false, ult: false, reload: false, jump: false };
 const perf = { fps: 0, ms: 0, frames: 0, t: 0, worst: 0 };
+const aim = new AimLog(params.has('aimlog')); // mouse-look telemetry; see aimlog.js
+let lockTry = '';    // the pointer-lock request in flight: 'raw', 'plain' or ''
+let lockRaw = false; // the lock we hold came from a raw-input request
+
+// Every reset of the view goes through here, so the aim log sees it.
+function resetLook(yaw, pitch, reason) {
+  const p0 = look.pitch;
+  look.yaw = yaw; look.pitch = pitch;
+  aim.add(KIND.reset, 0, 0, 0, settings.sensitivity, 0, p0, pitch, yaw, reason);
+}
 
 // ----- Match setup ---------------------------------------------------------
 
@@ -106,7 +117,7 @@ function startMatch(heroId) {
   human = sim.human;
   subject = human || sim.ents[0];
   for (const e of sim.ents) { e.px = e.x; e.py = e.y; e.pz = e.z; }
-  look.yaw = subject.yaw; look.pitch = 0;
+  resetLook(subject.yaw, 0, 'match start');
   view.startMatch(sim, human);
   if (!human) view.spectate = subject;
   hud.start(sim, subject, !human);
@@ -148,15 +159,37 @@ function resume() {
   const go = () => { state = 'playing'; menus.clear(); audio.setPaused(false); last = performance.now(); };
   if (NOLOCK) return go();
   if (document.pointerLockElement === canvas) return go();
+  // Ask for raw mouse input first. Without it, the OS adds pointer acceleration,
+  // and Chrome on Windows sometimes sends one huge jump in movementY, which
+  // throws the view to straight up or straight down. If the browser cannot give
+  // raw input, ask again for a plain lock.
+  const refused = (err) => {
+    lockTry = ''; logLockError('plain refused: ' + (err && err.name));
+    if (state !== 'playing') menus.pause(canSwap(), LOCK_NOTE);
+  };
+  const plain = (err) => {
+    logLockError('raw refused: ' + (err && err.name));
+    lockTry = 'plain';
+    let q;
+    try { q = canvas.requestPointerLock(); } catch (e) { return refused(e); }
+    if (q && q.catch) q.catch(refused);
+  };
+  lockTry = 'raw';
   let p;
-  try { p = canvas.requestPointerLock(); } catch (e) { p = null; }
+  try { p = canvas.requestPointerLock({ unadjustedMovement: true }); } catch (e) { return plain(e); }
   // The lock change event starts the game. If the browser refuses, stay paused.
-  if (p && p.catch) p.catch(() => { if (state !== 'playing') menus.pause(canSwap(), LOCK_NOTE); });
+  if (p && p.catch) p.catch(plain);
+  else lockTry = 'old'; // an old browser: no promise, and it ignores the option; the lock events tell the rest
 }
 
 // Browsers refuse the mouse for about a second after Esc. Tell the player what to do.
 const LOCK_NOTE = 'The browser did not give the mouse to the game. Wait a second, then click Resume again.';
-document.addEventListener('pointerlockerror', () => { if (state === 'paused' && sim && !NOLOCK) menus.pause(canSwap(), LOCK_NOTE); });
+function logLockError(reason) { aim.add(KIND.lockError, 0, 0, 0, settings.sensitivity, 0, look.pitch, look.pitch, look.yaw, reason); }
+document.addEventListener('pointerlockerror', () => {
+  logLockError('event');
+  // While a promise answer is due, that answer shows the note (and a refused raw request is asked again).
+  if (lockTry !== 'raw' && lockTry !== 'plain' && state === 'paused' && sim && !NOLOCK) menus.pause(canSwap(), LOCK_NOTE);
+});
 
 function clearInput() {
   for (const k in keys) keys[k] = false;
@@ -165,7 +198,10 @@ function clearInput() {
 }
 
 document.addEventListener('pointerlockchange', () => {
-  if (document.pointerLockElement === canvas) {
+  const locked = document.pointerLockElement === canvas;
+  if (locked) { lockRaw = lockTry === 'raw'; lockTry = ''; motion.avg = 0; motion.last = 0; motion.dropped = 0; }
+  aim.add(locked ? KIND.lock : KIND.unlock, lockRaw ? FLAG.raw : 0, 0, 0, settings.sensitivity, 0, look.pitch, look.pitch, look.yaw, locked ? (lockRaw ? 'raw' : 'plain') : '');
+  if (locked) {
     if ((state === 'paused' || state === 'swap') && sim && !sim.over) { state = 'playing'; menus.clear(); audio.setPaused(false); last = performance.now(); }
   } else if (state === 'playing' && !NOLOCK) pause();
 });
@@ -223,14 +259,44 @@ canvas.addEventListener('mousedown', (e) => {
 });
 window.addEventListener('mouseup', (e) => { if (e.button === 0) mouse.fire = false; else if (e.button === 2) mouse.alt = false; });
 window.addEventListener('contextmenu', (e) => { if (state === 'playing') e.preventDefault(); });
+// Mouse look. A browser can send one sudden jump in a move: much larger than
+// the moves just before it, and never twice in a row. Such a move is dropped.
+// A real fast flick grows over several moves and goes on, so it passes: the
+// second large move in a row always counts.
+const PITCH_MAX = 1.54;
+const SPIKE_MIN = 250;  // mouse counts in one move; smaller moves always count
+const SPIKE_RATIO = 6;  // ... and a drop needs this many times the recent size
+const motion = { avg: 0, last: 0, dropped: 0 };
 document.addEventListener('mousemove', (e) => {
   if (state !== 'playing' || !human) return;
-  if (document.pointerLockElement !== canvas && !(NOLOCK && (e.buttons & 1))) return;
-  let k = 0.0013 * settings.sensitivity; // radians for each mouse count at sensitivity 1
-  if (human.zoom) k /= human.hero.weapon.zoom;
-  look.yaw -= e.movementX * k;
-  look.pitch -= e.movementY * k * (settings.invertY ? -1 : 1);
-  if (look.pitch > 1.54) look.pitch = 1.54; else if (look.pitch < -1.54) look.pitch = -1.54;
+  const locked = document.pointerLockElement === canvas;
+  if (!locked && !(NOLOCK && (e.buttons & 1))) return;
+  const dx = e.movementX, dy = e.movementY, sens = settings.sensitivity;
+  const wz = human.hero.weapon.zoom, zoom = human.zoom && wz > 0 ? wz : 1;
+  const inv = settings.invertY ? -1 : 1;
+  const k = (0.0013 * sens) / zoom; // radians for each mouse count; 0.0013 at sensitivity 1
+  let flags = (locked ? FLAG.locked : FLAG.drag) | (locked && lockRaw ? FLAG.raw : 0) | (zoom !== 1 ? FLAG.zoom : 0) | (inv < 0 ? FLAG.invertY : 0);
+  const p0 = look.pitch;
+  if (!Number.isFinite(dx) || !Number.isFinite(dy) || !Number.isFinite(k)) {
+    aim.add(KIND.move, flags | FLAG.notFinite, dx, dy, sens, k, p0, p0, look.yaw);
+    return;
+  }
+  const size = Math.max(Math.abs(dx), Math.abs(dy));
+  if (e.timeStamp - motion.last > 100) motion.avg = 0; // the mouse was at rest
+  motion.last = e.timeStamp;
+  const spike = size > SPIKE_MIN && size > SPIKE_RATIO * Math.max(motion.avg, 20) && !motion.dropped;
+  motion.avg += (size - motion.avg) * 0.3;
+  if (spike) {
+    motion.dropped = 1;
+    aim.add(KIND.move, flags | FLAG.spike, dx, dy, sens, k, p0, p0, look.yaw);
+    return;
+  }
+  motion.dropped = 0;
+  look.yaw -= dx * k;
+  let p = p0 - dy * k * inv;
+  if (p > PITCH_MAX) { p = PITCH_MAX; flags |= FLAG.clampUp; } else if (p < -PITCH_MAX) { p = -PITCH_MAX; flags |= FLAG.clampDown; }
+  look.pitch = p;
+  aim.add(KIND.move, flags, dx, dy, sens, k, p0, p, look.yaw);
 });
 window.addEventListener('resize', () => view.resize());
 
@@ -295,6 +361,14 @@ window.__km = {
   start: (id) => startMatch(id || settings.hero), pause, resume, leave,
   bench: (frames, w, h) => view.benchmark(frames, w, h),
   set noLock(v) { NOLOCK = !!v; }, // lets a browser test drive the player without pointer lock
+  aim: {
+    log: aim,
+    summary: () => aim.summary({
+      lockMode: document.pointerLockElement === canvas ? (lockRaw ? 'raw' : 'plain') : 'none',
+      sensitivity: settings.sensitivity, invertY: settings.invertY, dpr: devicePixelRatio, pitch: look.pitch,
+    }),
+    dump: (n) => aim.dump(n), text: (n) => aim.text(n), clear: () => aim.clear(),
+  },
 };
 
 app.qualityChoice = settings.quality;

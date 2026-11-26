@@ -61,10 +61,29 @@ Add these to the address of the game page, for example
 - `?seed=123`: use a fixed random seed for the match.
 - `?phone`: show the phone message on a desktop.
 - `?debug`: turn on shader checks in the console.
+- `?aimlog`: print aim events to the console as they happen (clamps,
+  dropped mouse jumps, view resets and pointer-lock changes).
 
 The page also puts a `__km` object on `window` for browser tests. For
 example, `__km.bench(40, 1920, 1080)` gives the cost of one frame in
 milliseconds.
+
+### Aim telemetry
+
+The game always keeps a log of the last 4,096 aim events in memory. Each
+mouse move gives one row: the raw `movementX` and `movementY`, the
+sensitivity, the radians for each mouse count, the pitch before and after
+the move, and flags. A view reset and a pointer-lock change also give a row.
+The flags are `clampUp` and `clampDown` (the pitch hit its limit), `spike`
+(the game dropped one sudden mouse jump), `notFinite`, `zoom`, `invertY`,
+`locked`, `raw` (the lock asked for raw input) and `drag` (a `?nolock` drag).
+
+If the aim goes wrong, open the browser console and run these:
+
+- `__km.aim.summary()`: counts, the largest deltas and the lock mode (`lockMode`).
+- `copy(__km.aim.text())`: copy the whole log as tab-separated text.
+- `__km.aim.dump(50)`: the last 50 rows as objects.
+- `__km.aim.clear()`: empty the log.
 
 ## Deploy
 
