@@ -10,6 +10,10 @@
 //   __km.aim.clear()
 // ?aimlog in the address also prints clamps, rejects, resets and lock changes
 // to the console as they happen.
+//
+// The log is also the "aim" stream of the telemetry (telemetry.js): every few
+// seconds drain() hands the new rows over, and they are kept across page loads.
+// clear() empties only the console view above, not the stream.
 
 export const KIND = { move: 1, reset: 2, lock: 3, unlock: 4, lockError: 5 };
 const KIND_NAME = ['', 'move', 'reset', 'lock', 'unlock', 'lockError'];
@@ -27,6 +31,10 @@ const FLAG_NAMES = Object.keys(FLAG);
 
 const SIZE = 4096;
 
+// The columns of one aim row in the telemetry, in order.
+export const AIM_FIELDS = ['t', 'kind', 'flags', 'dx', 'dy', 'sens', 'k', 'pitch0', 'pitch1', 'yaw1', 'reason'];
+const r4 = (x) => Math.round(x * 1e4) / 1e4;
+
 export class AimLog {
   constructor(live) {
     this.live = !!live;
@@ -41,22 +49,25 @@ export class AimLog {
     this.pitch1 = new Float32Array(SIZE);
     this.yaw1 = new Float32Array(SIZE);
     this.reason = new Array(SIZE).fill('');
+    this.w = 0; // rows written since the page loaded; the buffer keeps the last SIZE
     this.clear();
   }
 
   clear() {
-    this.n = 0; // rows written since the last clear; the buffer keeps the last SIZE
+    this.from = this.w; // the console view starts here
     this.counts = { move: 0, reset: 0, lock: 0, unlock: 0, lockError: 0, clamp: 0, spike: 0, notFinite: 0 };
     this.maxAbsDx = 0; this.maxAbsDy = 0;
   }
 
+  get n() { return this.w - this.from; } // rows written since the last clear
+
   add(kind, flags, dx, dy, sens, k, pitch0, pitch1, yaw1, reason) {
-    const i = this.n % SIZE;
+    const i = this.w % SIZE;
     this.t[i] = performance.now(); this.kind[i] = kind; this.flags[i] = flags;
     this.dx[i] = dx; this.dy[i] = dy; this.sens[i] = sens; this.k[i] = k;
     this.pitch0[i] = pitch0; this.pitch1[i] = pitch1; this.yaw1[i] = yaw1;
     this.reason[i] = reason || '';
-    this.n++;
+    this.w++;
     const c = this.counts;
     c[KIND_NAME[kind]]++;
     if (flags & (FLAG.clampUp | FLAG.clampDown)) c.clamp++;
@@ -84,8 +95,24 @@ export class AimLog {
   // The last `count` rows, oldest first.
   dump(count = SIZE) {
     const have = Math.min(this.n, SIZE), take = Math.min(have, count), out = [];
-    for (let j = this.n - take; j < this.n; j++) out.push(this.row(j % SIZE));
+    for (let j = this.w - take; j < this.w; j++) out.push(this.row(j % SIZE));
     return out;
+  }
+
+  // The rows written since row number `cursor`, for the telemetry. Each row is
+  // an array in AIM_FIELDS order. `lost` counts rows the ring overwrote before
+  // they were drained. This runs every few seconds, never in the input path.
+  drain(cursor) {
+    const start = Math.max(cursor, this.w - SIZE), rows = [];
+    for (let j = start; j < this.w; j++) {
+      const i = j % SIZE, f = this.flags[i];
+      rows.push([
+        Math.round(this.t[i] * 10) / 10, KIND_NAME[this.kind[i]], FLAG_NAMES.filter((name) => f & FLAG[name]).join(' '),
+        Math.round(this.dx[i] * 100) / 100, Math.round(this.dy[i] * 100) / 100, +this.sens[i].toFixed(3), +this.k[i].toPrecision(4),
+        r4(this.pitch0[i]), r4(this.pitch1[i]), r4(this.yaw1[i]), this.reason[i],
+      ]);
+    }
+    return { rows, first: start, next: this.w, lost: start - cursor };
   }
 
   text(count) {

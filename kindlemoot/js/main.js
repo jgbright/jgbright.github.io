@@ -7,7 +7,8 @@ import { GameView } from './render/view.js';
 import { GameAudio } from './audio.js';
 import { Hud } from './ui/hud.js';
 import { Menus } from './ui/menus.js';
-import { AimLog, KIND, FLAG } from './aimlog.js';
+import { AimLog, KIND, FLAG, AIM_FIELDS } from './aimlog.js';
+import { Telemetry, randomId } from './telemetry.js';
 
 const params = new URLSearchParams(location.search);
 const AUTO = params.has('auto');            // test mode: a bot plays your slot
@@ -73,6 +74,12 @@ const mouse = { fire: false, alt: false };
 const latch = { a1: false, a2: false, ult: false, reload: false, jump: false };
 const perf = { fps: 0, ms: 0, frames: 0, t: 0, worst: 0 };
 const aim = new AimLog(params.has('aimlog')); // mouse-look telemetry; see aimlog.js
+// The telemetry store: streams kept across page loads; see telemetry.js. ?otel on a local host also exports them.
+const tel = new Telemetry({ build: typeof __KM_BUILD__ === 'string' ? __KM_BUILD__ : 'source' });
+tel.source('aim', AIM_FIELDS, (cursor) => aim.drain(cursor));
+const matchLog = tel.events('match', ['event', 'match', 'hero', 'seed', 'comp', 'difficulty', 'auto', 'result']);
+let matchId = '';
+tel.start();
 let lockTry = '';    // the pointer-lock request in flight: 'raw', 'plain' or ''
 let lockRaw = false; // the lock we hold came from a raw-input request
 
@@ -116,6 +123,8 @@ function startMatch(heroId) {
   });
   human = sim.human;
   subject = human || sim.ents[0];
+  matchId = randomId();
+  matchLog.add({ event: 'start', match: matchId, hero: heroId, seed, comp: settings.comp, difficulty: params.get('diff') || settings.difficulty, auto: AUTO });
   for (const e of sim.ents) { e.px = e.x; e.py = e.y; e.pz = e.z; }
   resetLook(subject.yaw, 0, 'match start');
   view.startMatch(sim, human);
@@ -130,6 +139,7 @@ function startMatch(heroId) {
 }
 
 function leave() {
+  if (sim && !sim.over) matchLog.add({ event: 'leave', match: matchId });
   audio.setPaused(false);
   view.endMatch(); audio.stopAll();
   sim = human = subject = null;
@@ -152,6 +162,7 @@ function pause() {
   audio.setPaused(true);
   clearInput();
   menus.pause(canSwap());
+  tel.flush('pause');
 }
 
 function resume() {
@@ -322,6 +333,8 @@ function onEnd() {
   hud.showTab(false);
   if (document.pointerLockElement) document.exitPointerLock();
   const won = sim.winner === subject.team, s = sim, me = subject;
+  matchLog.add({ event: 'end', match: matchId, result: won ? 'win' : 'lose' });
+  tel.flush('end');
   setTimeout(() => { if (sim === s && state === 'ended') { menus.end(s, me, won); audio.ui(won ? 'win' : 'lose'); } }, 1600);
 }
 
@@ -370,6 +383,11 @@ window.__km = {
       sensitivity: settings.sensitivity, invertY: settings.invertY, dpr: devicePixelRatio, pitch: look.pitch,
     }),
     dump: (n) => aim.dump(n), text: (n) => aim.text(n), clear: () => aim.clear(),
+  },
+  telemetry: {
+    store: tel,
+    summary: () => tel.summary(), export: (o) => tel.export(o), exportText: () => tel.exportText(),
+    status: () => tel.status(), flush: () => tel.flush('console'), clear: () => tel.clear(),
   },
 };
 

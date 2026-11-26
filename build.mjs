@@ -14,6 +14,7 @@ import * as esbuild from 'esbuild';
 import { cp, rm, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { watch, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { execSync } from 'node:child_process';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -22,6 +23,12 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const dist = path.join(root, 'dist');
 const serve = process.argv.includes('--serve');
 const port = +(process.env.PORT || 8377);
+// HOST=0.0.0.0 serves on the LAN too, for a check from a host that is not local.
+const host = process.env.HOST || '127.0.0.1';
+// The build id the telemetry records: the commit, with "+dev" for the dev server.
+let commit = (process.env.GITHUB_SHA || '').slice(0, 10);
+if (!commit) try { commit = execSync('git rev-parse --short=10 HEAD', { cwd: path.dirname(fileURLToPath(import.meta.url)), encoding: 'utf8' }).trim(); } catch { commit = 'unknown'; }
+const buildId = commit + (serve ? '+dev' : '');
 const at = (...p) => path.join(root, ...p);
 const out = (...p) => path.join(dist, ...p);
 
@@ -65,6 +72,7 @@ const options = {
   minify: true,
   sourcemap: true,
   legalComments: 'linked',
+  define: { __KM_BUILD__: JSON.stringify(buildId) },
   metafile: true,
   logLevel: 'warning',
   plugins: [{
@@ -87,8 +95,8 @@ if (!serve) {
 } else {
   const ctx = await esbuild.context(options);
   await ctx.watch();
-  const server = await ctx.serve({ servedir: dist, host: '127.0.0.1', port });
-  console.log(`serving dist/ at http://127.0.0.1:${server.port}/  (game: /kindlemoot/)`);
+  const server = await ctx.serve({ servedir: dist, host, port });
+  console.log(`serving dist/ at http://${host}:${server.port}/  (game: /kindlemoot/)`);
   // esbuild watches the JavaScript. These watchers cover the copied files.
   let timer = null;
   const again = () => { clearTimeout(timer); timer = setTimeout(() => copyStatic().then(() => console.log('copied page files'), (e) => console.error(e.message)), 80); };

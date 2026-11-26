@@ -6,7 +6,8 @@
   "scripts": {
     "build": "node build.mjs",
     "dev": "node build.mjs --serve",
-    "smoke": "node kindlemoot/tools/smoke.mjs 6"
+    "smoke": "node kindlemoot/tools/smoke.mjs 6",
+    "test": "node kindlemoot/tools/telemetry-test.mjs"
   },
   "dependencies": {
     "three": "0.187.0"
